@@ -1,0 +1,471 @@
+# Implement Trait and Function Generators
+
+Implement markdown generators for traits, functions, and their associated items.
+These generators handle the behavioral aspects of Rust code that define how
+types interact and work together.
+
+## Current Problems
+
+No generators exist for behavioral Rust types. These are essential for
+understanding how code works and interacts:
+
+1. **Traits**: Need to show methods, associated types, associated constants, and
+   documentation
+2. **Functions**: Need to show signatures, parameters, return types, and
+   documentation
+3. **Impl blocks**: Need to show implementations and their members
+4. **Associated items**: Need to show items within trait implementations
+
+## Proposed Solution
+
+Create dedicated generators for behavioral types following the established
+markdown framework:
+
+1. Implement `src/markdown/trait.rs` for trait items
+2. Implement `src/markdown/function.rs` for free function items
+3. Implement `src/markdown/impl.rs` for impl block items
+4. Implement `src/markdown/constant.rs` for associated constant items
+5. Integrate generators into build command
+6. Add comprehensive tests for each generator
+
+## Implementation Checklist
+
+### Trait Generator
+
+- [ ] Create `src/markdown/trait.rs` module
+- [ ] Import `Result` and `MarkdownError` from `src/error.rs`
+- [ ] Implement
+      `generate_trait(krate: &Crate, item: &Item, output_dir: &Path) -> Result<()>`:
+    - Extract trait data from item
+    - Render header with trait name
+    - Render documentation text
+    - Render generic parameters and bounds
+    - Render associated items (methods, types, constants)
+    - Add supertrait list if present
+    - Add "Next Actions" section
+- [ ] Implement
+      `render_trait_items(items: &[Id], krate: &Crate, item_map: &Index) -> String`:
+    - Group by item type (methods, associated types, associated constants)
+    - Render each item with signature
+    - Include item documentation
+- [ ] Implement `render_supertraits(bounds: &[GenericBound]) -> String`:
+    - List supertraits in code block
+    - Format with proper indentation
+- [ ] Add module-level documentation
+- [ ] Create unit tests:
+    - Test with simple trait (no generics)
+    - Test with generic trait with bounds
+    - Test with supertraits
+    - Test with methods
+    - Test with associated types
+    - Test with associated constants
+    - Test with missing documentation
+
+### Function Generator
+
+- [ ] Create `src/markdown/function.rs` module
+- [ ] Import `Result` and `MarkdownError` from `src/error.rs`
+- [ ] Implement
+      `generate_function(krate: &Crate, item: &Item, output_dir: &Path) -> Result<()>`:
+    - Extract function data from item
+    - Render header with function name
+    - Render documentation text
+    - Render signature with generics
+    - Render parameters with types and names
+    - Render return type
+    - Add "Next Actions" section
+- [ ] Implement `render_function_signature(func: &Function) -> String`:
+    - Format with proper generics
+    - Include parameter list
+    - Include return type
+- [ ] Implement `render_parameters(decl: &[Argument]) -> String`:
+    - List parameters with types and names
+    - Include parameter documentation if available
+- [ ] Add module-level documentation
+- [ ] Create unit tests:
+    - Test with simple function
+    - Test with generic function
+    - Test with multiple parameters
+    - Test with complex return types
+    - Test with missing documentation
+
+### Impl Block Generator
+
+- [ ] Create `src/markdown/impl.rs` module
+- [ ] Import `Result` and `MarkdownError` from `src/error.rs`
+- [ ] Implement
+      `generate_impl(krate: &Crate, item: &Item, output_dir: &Path) -> Result<()>`:
+    - Extract impl data from item
+    - Determine impl type (trait or inherent)
+    - Render header with type and trait (if trait impl)
+    - Render documentation text
+    - Render implemented methods
+    - Render associated types/constants if present
+    - Add "Next Actions" section
+- [ ] Implement `render_impl_header(impl_data: &Impl) -> String`:
+    - Show type being implemented
+    - Show trait if trait implementation
+    - Show generic parameters
+- [ ] Implement
+      `render_impl_members(items: &[Id], krate: &Crate, item_map: &Index) -> String`:
+    - List methods, types, constants
+    - Group by category
+- [ ] Add module-level documentation
+- [ ] Create unit tests:
+    - Test with inherent impl
+    - Test with trait impl
+    - Test with generic impl
+    - Test with multiple methods
+    - Test with missing documentation
+
+### Associated Constant Generator
+
+- [ ] Create `src/markdown/constant.rs` module
+- [ ] Import `Result` and `MarkdownError` from `src/error.rs`
+- [ ] Implement
+      `generate_constant(krate: &Crate, item: &Item, output_dir: &Path) -> Result<()>`:
+    - Extract constant data from item
+    - Render header with constant name
+    - Render documentation text
+    - Render type and value
+    - Add "Next Actions" section
+- [ ] Implement
+      `render_constant_value(type_: &Type, expr: &Option<String>) -> String`:
+    - Show type in code block
+    - Show value expression if available
+- [ ] Add module-level documentation
+- [ ] Create unit tests:
+    - Test with simple constant
+    - Test with generic constant
+    - Test with computed constant
+    - Test with missing value
+    - Test with missing documentation
+
+### Integration
+
+- [ ] Update `src/markdown/mod.rs`:
+    - Add `pub mod trait_;`
+    - Add `pub mod function;`
+    - Add `pub mod impl_;`
+    - Add `pub mod constant;`
+    - Re-export `Result` from error module for convenience
+- [ ] Update `src/commands/build.rs`:
+    - Import the new generator modules
+    - Add logic to dispatch to appropriate generator
+    - Generate markdown for all trait items
+    - Generate markdown for all function items
+    - Generate markdown for all impl block items
+    - Generate markdown for all associated constant items
+- [ ] Update `DOCS.md` with examples:
+    - Show generated trait markdown
+    - Show generated function markdown
+    - Show generated impl block markdown
+    - Show generated constant markdown
+
+### Tests
+
+- [ ] Add integration test for full trait generation
+- [ ] Add integration test for full function generation
+- [ ] Add integration test for full impl generation
+- [ ] Add integration test for full constant generation
+- [ ] Verify all tests pass with `cargo test`
+
+## Test Plan
+
+### Verification Tests
+
+#### Trait Generator
+
+- [ ] Verify simple trait shows all items
+- [ ] Verify generic trait shows parameters and bounds
+- [ ] Verify supertraits are listed
+- [ ] Verify methods show signatures and documentation
+- [ ] Verify associated types show names and bounds
+- [ ] Verify associated constants show types and values
+- [ ] Verify generated file name follows convention
+
+#### Function Generator
+
+- [ ] Verify simple function shows signature
+- [ ] Verify generic function shows parameters and bounds
+- [ ] Verify parameter list includes all parameters with types
+- [ ] Verify return type is displayed
+- [ ] Verify parameter documentation is included
+- [ ] Verify generated file name follows convention
+
+#### Impl Block Generator
+
+- [ ] Verify inherent impl shows type and methods
+- [ ] Verify trait impl shows trait name and implemented items
+- [ ] Verify generic impl shows parameters
+- [ ] Verify all methods are listed
+- [ ] Verify generated file name follows convention (or skipped if not needed)
+
+#### Associated Constant Generator
+
+- [ ] Verify constant shows type
+- [ ] Verify value expression is shown if available
+- [ ] Verify documentation is included
+- [ ] Verify generated file name follows convention
+
+### Integration Tests
+
+- [ ] Verify build command generates all trait files
+- [ ] Verify build command generates all function files
+- [ ] Verify build command generates all impl block files (if needed)
+- [ ] Verify build command generates all associated constant files
+- [ ] Verify index links work to generated files
+
+### Regression Tests
+
+- [ ] Verify index page still works
+- [ ] Verify basic type generators still work
+- [ ] Verify no compiler warnings
+- [ ] Verify existing tests still pass
+
+## Structure After Changes
+
+### File Structure
+
+```
+cargo-docmd/
+├── src/
+│   ├── error.rs                # Centralized error definitions (from core infrastructure)
+│   ├── markdown/
+│   │   ├── mod.rs              # Updated with new exports
+│   │   ├── index.rs            # Existing
+│   │   ├── utils.rs            # Existing
+│   │   ├── struct_.rs          # Existing
+│   │   ├── enum_.rs            # Existing
+│   │   ├── union.rs            # Existing
+│   │   ├── alias.rs            # Existing
+│   │   ├── trait_.rs           # NEW: Trait generator
+│   │   ├── function.rs         # NEW: Function generator
+│   │   ├── impl_.rs            # NEW: Impl block generator
+│   │   └── constant.rs         # NEW: Constant generator
+│   └── commands/
+│       └── build.rs            # Updated to use generators
+```
+
+### Module Exports
+
+```rust
+// src/markdown/mod.rs
+pub mod index;
+pub mod utils;
+pub mod struct_;
+pub mod enum_;
+pub mod union;
+pub mod alias;
+pub mod trait_;
+pub mod function;
+pub mod impl_;
+pub mod constant;
+
+// Re-export from error module for convenience
+pub use crate::error::{Error, MarkdownError, Result};
+
+// Re-export commonly used functions
+pub use trait_::generate_trait;
+pub use function::generate_function;
+pub use impl_::generate_impl;
+pub use constant::generate_constant;
+```
+
+### Example Generated Trait Markdown
+
+```markdown
+# Iterator
+
+A trait for iterating over a sequence of elements.
+
+## Generic Parameters
+
+- `Item` - The type of elements being iterated
+
+## Supertraits
+
+None
+
+## Methods
+
+- `fn next(&mut self) -> Option<Self::Item>` - Advances the iterator and returns
+  the next value
+- `fn size_hint(&self) -> (usize, Option<usize>)` - Returns bounds on the
+  remaining length of the iterator
+
+## Associated Types
+
+- `Item` - The type of the elements being iterated
+
+## Next Actions
+
+- View source: `cargo docmd browse --item 0:3:10`
+- Find related traits: `cargo docmd browse --type trait`
+```
+
+### Example Generated Function Markdown
+
+````markdown
+# add
+
+Adds two numbers together.
+
+## Signature
+
+```rust
+fn add(a: i32, b: i32) -> i32
+```
+````
+
+## Parameters
+
+- `a: i32` - First number to add
+- `b: i32` - Second number to add
+
+## Return Type
+
+`i32` - The sum of `a` and `b`
+
+## Next Actions
+
+- View source: `cargo docmd browse --item 0:3:11`
+- Find related functions: `cargo docmd browse --type function`
+
+````
+
+### Example Generated Impl Block Markdown
+
+```markdown
+# Iterator for Vec<T>
+
+Implementation of Iterator for Vec<T>.
+
+## Implemented Trait
+
+`Iterator`
+
+## Methods
+
+- `fn next(&mut self) -> Option<Self::Item>` - Returns the next element
+- `fn size_hint(&self) -> (usize, Option<usize>)` - Returns bounds on remaining
+  length
+
+## Next Actions
+
+- View source: `cargo docmd browse --item 0:3:12`
+- Find related impls: `cargo docmd browse --type impl`
+````
+
+### Example Generated Constant Markdown
+
+````markdown
+# MAX_SIZE
+
+Maximum allowed size for a buffer.
+
+## Type
+
+```rust
+usize
+```
+````
+
+## Value
+
+```rust
+1024
+```
+
+## Next Actions
+
+- View source: `cargo docmd browse --item 0:3:13`
+- Find related constants: `cargo docmd browse --type constant`
+
+```
+
+## Design Considerations
+
+### 1. Impl Block Generation Strategy
+
+**Decision**: Generate markdown for impl blocks.
+
+- **Alternative**: Skip impl blocks, only generate items within them.
+  - Rejected: Impl blocks provide useful context about what's implemented for a type
+- **Alternative**: Generate impl blocks only for trait implementations.
+  - Rejected: Inherent impls are also important for understanding type behavior
+- **Resolution**: Generate all impl blocks with clear indication of whether they're inherent or trait impls
+
+### 2. Trait Item Grouping
+
+**Decision**: Group trait items by category (methods, types, constants).
+
+- **Alternative**: List all items together in one section.
+  - Rejected: Grouping makes it easier to find specific types of items
+- **Alternative**: Create separate files for each item type within traits.
+  - Rejected: Would create too many files, trait overview is valuable
+- **Resolution**: Group within the trait file for cohesive overview
+
+### 3. Function Parameter Display
+
+**Decision**: Show parameter names and types in a list.
+
+- **Alternative**: Show only the signature.
+  - Rejected: Parameter names are important for understanding usage
+- **Alternative**: Show parameter documentation inline with signature.
+  - Rejected: Hard to read for complex functions with many parameters
+- **Resolution**: Show signature in code block, parameter list with documentation
+  below
+
+### 4. Associated Constant Value Display
+
+**Decision**: Show value expression if available.
+
+- **Alternative**: Only show the type.
+  - Rejected: Value is often useful for understanding the constant
+- **Alternative**: Evaluate the expression to show the computed value.
+  - Rejected: Too complex, expression is sufficient
+- **Resolution**: Show the expression as written in source code
+
+### 5. Generic Parameter Display
+
+**Decision**: Show generic parameters prominently for traits and functions.
+
+- **Alternative**: Only show in signature.
+  - Rejected: Generic parameters are important for understanding API
+- **Alternative**: Create a dedicated section for generic parameters.
+  - Rejected: Can be shown in header and signature
+- **Resolution**: Show in header for traits, in signature for functions
+
+### 6. Error Handling
+
+**Decision**: Use centralized error types from `src/error.rs`.
+
+- **Alternative**: Define local error types in each generator.
+  - Rejected: Centralized errors provide consistency across the codebase
+- **Resolution**: Import `Result` and `MarkdownError` from error module for
+  consistent error handling and messaging
+
+## Success Criteria
+
+- [ ] All four generators are implemented
+- [ ] Trait generator handles all trait variants
+- [ ] Function generator handles all function variants
+- [ ] Impl block generator handles both inherent and trait impls
+- [ ] Constant generator handles both module-level and associated constants
+- [ ] Generated markdown follows standard structure
+- [ ] All generated files use correct naming convention
+- [ ] Build command generates files for all behavioral type items
+- [ ] Index page links to generated files correctly
+- [ ] Error messages include full paths on failure
+- [ ] All unit tests pass
+- [ ] All integration tests pass
+- [ ] No compiler warnings
+- [ ] Documentation is complete and clear
+
+## Implementation Status: 🟡 NOT STARTED
+
+## Implementation Notes
+
+Space for recording specific technical details or roadblocks encountered during work.
+```
