@@ -4,7 +4,7 @@
 //! filenames, and writing files. These utilities are used across all item-type
 //! generators to maintain consistency in the output.
 
-use crate::error::{MarkdownError, Result};
+use crate::error;
 use rustdoc_types::ItemEnum;
 use std::fs;
 use std::path::Path;
@@ -79,7 +79,7 @@ pub fn render_header(level: usize, text: &str) -> String {
 /// specifies a language for syntax highlighting.
 pub fn render_code_block(content: &str, language: Option<&str>) -> String {
     let lang_spec = language.unwrap_or("");
-    format!("```{}\n{}\n```", lang_spec, content)
+    format!("```{}\n{}\n```\n", lang_spec, content)
 }
 
 /// Render inline code in markdown.
@@ -108,10 +108,10 @@ pub fn render_documentation(docs: &Option<String>) -> String {
         .lines()
         .map(|line| {
             let trimmed = line.trim();
-            if trimmed.starts_with("///") {
-                trimmed[3..].trim_start()
-            } else if trimmed.starts_with("//") {
-                trimmed[2..].trim_start()
+            if let Some(stripped) = trimmed.strip_prefix("///") {
+                stripped.trim_start()
+            } else if let Some(stripped) = trimmed.strip_prefix("//") {
+                stripped.trim_start()
             } else {
                 trimmed
             }
@@ -145,15 +145,16 @@ pub fn render_next_actions_section(actions: &[String]) -> String {
 ///
 /// This function ensures the parent directory exists before writing the file,
 /// providing clear error messages with full paths on failure.
-pub fn write_markdown_file(path: &Path, content: &str) -> Result<()> {
+pub fn write_markdown_file(path: &Path, content: &str) -> error::Result<()> {
     // Ensure parent directory exists
     if let Some(parent) = path.parent() {
         ensure_directory_exists(parent)?;
     }
 
     // Write the file
-    fs::write(path, content)
-        .map_err(|error| MarkdownError::FileWriteFailed(path.to_path_buf(), error.to_string()))?;
+    fs::write(path, content).map_err(|error| {
+        error::MarkdownError::FileWriteFailed(path.to_path_buf(), error.to_string())
+    })?;
 
     Ok(())
 }
@@ -162,7 +163,7 @@ pub fn write_markdown_file(path: &Path, content: &str) -> Result<()> {
 ///
 /// This function creates the directory and any missing parent directories,
 /// handling the case where the directory already exists gracefully.
-pub fn ensure_directory_exists(path: &Path) -> Result<()> {
+pub fn ensure_directory_exists(path: &Path) -> error::Result<()> {
     // Check if directory already exists
     if path.exists() {
         return Ok(());
@@ -170,7 +171,7 @@ pub fn ensure_directory_exists(path: &Path) -> Result<()> {
 
     // Create directory recursively
     fs::create_dir_all(path).map_err(|error| {
-        MarkdownError::DirectoryCreationFailed(path.to_path_buf(), error.to_string())
+        error::MarkdownError::DirectoryCreationFailed(path.to_path_buf(), error.to_string())
     })?;
 
     Ok(())
@@ -182,8 +183,6 @@ pub fn ensure_directory_exists(path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::Error;
-    use rustdoc_types::ItemEnum;
     use std::fs;
     use tempfile::tempdir;
 
@@ -338,16 +337,15 @@ mod tests {
     // Error Handling Tests
 
     #[test]
-    fn error_handling_write_file_failed_includes_path() {
-        let temp_dir = tempdir().unwrap();
-        let _file_path = temp_dir.path().join("test.md");
+    fn error_handling_file_write_failed_includes_path() {
+        let temp_dir = tempfile::tempdir().unwrap();
 
         // Try to write to a directory instead of a file
         let result = write_markdown_file(&temp_dir.path(), "content");
 
         assert!(result.is_err());
         match result {
-            Err(Error::Markdown(MarkdownError::FileWriteFailed(path, _))) => {
+            Err(error::Error::Markdown(error::MarkdownError::FileWriteFailed(path, _))) => {
                 assert_eq!(path, temp_dir.path());
             }
             _ => panic!("Expected FileWriteFailed error"),
@@ -363,7 +361,7 @@ mod tests {
 
         assert!(result.is_err());
         match result {
-            Err(Error::Markdown(MarkdownError::DirectoryCreationFailed(path, _))) => {
+            Err(error::Error::Markdown(error::MarkdownError::DirectoryCreationFailed(path, _))) => {
                 assert_eq!(path, invalid_path);
             }
             _ => panic!("Expected DirectoryCreationFailed error"),

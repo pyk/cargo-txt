@@ -4,8 +4,8 @@
 //! grouped by type with links to their detail pages. The index serves as a
 //! navigation hub for browsing the crate documentation.
 
-use crate::error::Result;
-use crate::markdown::{SECTION_HEADER_LEVEL, utils};
+use crate::error;
+use crate::markdown;
 use rustdoc_types::Crate;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -15,7 +15,7 @@ use std::path::Path;
 /// This function creates an index.md file in the output directory that contains
 /// the crate name, documentation, item counts grouped by type, and links to
 /// all public items.
-pub fn generate_index(krate: &Crate, output_dir: &Path) -> Result<()> {
+pub fn generate_index(krate: &Crate, output_dir: &Path) -> error::Result<()> {
     // Get the root module for crate-level documentation
     let root_item = match krate.index.get(&krate.root) {
         Some(item) => item,
@@ -32,10 +32,13 @@ pub fn generate_index(krate: &Crate, output_dir: &Path) -> Result<()> {
     let mut content = String::new();
 
     // Add crate title and documentation
-    content.push_str(&utils::render_header(SECTION_HEADER_LEVEL, crate_name));
+    content.push_str(&markdown::utils::render_header(
+        markdown::SECTION_HEADER_LEVEL,
+        crate_name,
+    ));
     content.push_str("\n\n");
 
-    let crate_docs = utils::render_documentation(&root_item.docs);
+    let crate_docs = markdown::utils::render_documentation(&root_item.docs);
     if !crate_docs.is_empty() {
         content.push_str(&crate_docs);
         content.push_str("\n\n");
@@ -54,11 +57,11 @@ pub fn generate_index(krate: &Crate, output_dir: &Path) -> Result<()> {
         "View source: `cargo docmd browse --crate {}`",
         crate_name
     )];
-    content.push_str(&utils::render_next_actions_section(&next_actions));
+    content.push_str(&markdown::utils::render_next_actions_section(&next_actions));
 
     // Write the index file
     let index_path = output_dir.join("index.md");
-    utils::write_markdown_file(&index_path, &content)?;
+    markdown::utils::write_markdown_file(&index_path, &content)?;
 
     Ok(())
 }
@@ -89,13 +92,10 @@ fn group_items_by_type(krate: &Crate) -> BTreeMap<String, Vec<String>> {
         }
 
         // Get the type name as a string
-        let type_name = utils::get_item_type_name(&item.inner).to_string();
+        let type_name = markdown::utils::get_item_type_name(&item.inner).to_string();
 
-        // Add to the appropriate group
-        grouped
-            .entry(type_name)
-            .or_insert_with(Vec::new)
-            .push(item_name);
+        // Add to appropriate group
+        grouped.entry(type_name).or_default().push(item_name);
     }
 
     // Sort items within each group
@@ -136,11 +136,14 @@ fn render_item_lists(items_by_type: &BTreeMap<String, Vec<String>>) -> String {
             continue;
         }
 
-        result.push_str(&utils::render_header(SECTION_HEADER_LEVEL + 1, type_name));
+        result.push_str(&markdown::utils::render_header(
+            markdown::SECTION_HEADER_LEVEL + 1,
+            type_name,
+        ));
         result.push_str("\n\n");
 
         for item_name in items {
-            let filename = utils::generate_filename(item_name);
+            let filename = markdown::utils::generate_filename(item_name);
             result.push_str(&format!("- [{}]({})\n", item_name, filename));
         }
 

@@ -49,13 +49,15 @@ cargo docmd -v build --crate serde
 
 #### What It Does
 
-1. Checks that the nightly toolchain is installed
+1. Checks that nightly toolchain is installed
 2. Runs
    `cargo +nightly rustdoc -p <crate> -- --output-format json -Z unstable-options`
 3. Parses the generated JSON file
 4. Creates the output directory if needed
 5. Logs a summary of parsed items by type
-6. Generates an `index.md` file listing all public items grouped by type
+6. Generates markdown files for all basic type items (structs, enums, unions,
+   type aliases)
+7. Generates an `index.md` file listing all public items grouped by type
 
 #### Requirements
 
@@ -66,10 +68,9 @@ cargo docmd -v build --crate serde
 
 #### Limitations
 
-The build command generates rustdoc JSON, parses it, and creates an index page.
-Individual item markdown generation is not yet implemented. The command creates
-the output directory and logs item counts to verify the JSON was parsed
-correctly.
+The build command currently generates markdown for basic types (structs, enums,
+unions, and type aliases). Other item types (traits, functions, modules, macros,
+etc.) are not yet documented but are listed in the index page.
 
 ### browse
 
@@ -198,13 +199,9 @@ All generated markdown files follow this structure:
 
 Item documentation text from rustdoc.
 
-## Signature
+## Type-Specific Sections
 
-Code block showing the item signature.
-
-## Details
-
-Additional information specific to the item type.
+Fields, variants, or type details depending on the item type.
 
 ## Next Actions
 
@@ -212,14 +209,117 @@ Additional information specific to the item type.
 - Find related items: `cargo docmd browse --type <type>`
 ```
 
+### Generated Item Types
+
+#### Structs
+
+Structs generate documentation with a **Fields** section listing all struct
+fields with their types and visibility markers.
+
+Example generated struct:
+
+```markdown
+# Point
+
+A 2D point in Cartesian coordinates.
+
+## Fields
+
+- `x: f64` (pub) - X coordinate
+- `y: f64` (pub) - Y coordinate
+
+## Next Actions
+
+- View source: `cargo docmd browse --item 0:3:4`
+- Find related structs: `cargo docmd browse --type struct`
+```
+
+#### Enums
+
+Enums generate documentation with a **Variants** section listing all enum
+variants, their associated data types, and explicit discriminants.
+
+Example generated enum:
+
+```markdown
+# Option
+
+A type representing a value that may or may not exist.
+
+## Variants
+
+- `Some(T)` - Some value of type `T`
+- `None` - No value
+
+## Next Actions
+
+- View source: `cargo docmd browse --item 0:3:5`
+- Find related enums: `cargo docmd browse --type enum`
+```
+
+#### Unions
+
+Unions generate documentation with a **Safety** warning section and a **Fields**
+section. The safety note reminds users about unsafe access requirements.
+
+Example generated union:
+
+```markdown
+# Any
+
+A dynamically-typed value.
+
+## Safety
+
+**Important**: Accessing union fields requires unsafe code. Only access the
+field that was most recently written to. Reading from a different field results
+in undefined behavior.
+
+## Fields
+
+- `integer: i64` (pub)
+- `float: f64` (pub)
+- `text: *const u8` (pub)
+
+## Next Actions
+
+- View source: `cargo docmd browse --item 0:3:6`
+- Find related unions: `cargo docmd browse --type union`
+```
+
+#### Type Aliases
+
+Type aliases generate documentation with a **Type** section showing the target
+type in a code block for clarity.
+
+Example generated type alias:
+
+````markdown
+# Result
+
+Result type alias for convenience.
+
+## Type
+
+```rust
+type Result<T> = std::result::Result<T, Error>;
+```
+
+## Next Actions
+
+- View source: `cargo docmd browse --item 0:3:7`
+- Find related aliases: `cargo docmd browse --type type-alias`
+````
+
 ## Current Limitations
 
 This section documents the current limitations of cargo docmd as of version
 0.1.0.
 
-- **Build command**: Generates rustdoc JSON, parses it, and creates an index
-  page. Individual item markdown generation is not yet implemented. The command
-  creates the output directory and logs item counts.
+- **Build command**: Generates rustdoc JSON and creates markdown for basic types
+  (structs, enums, unions, type aliases). Other item types (traits, functions,
+  modules, macros, impl blocks, etc.) are not yet documented but are listed in
+  the index page.
 - **Browse command**: Accepts crate name and optional item parameter but does
   not display documentation yet.
 - **Configuration**: The `--config` option is available but configuration file
