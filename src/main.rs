@@ -3,16 +3,19 @@
 //! This tool converts rustdoc JSON output into markdown documentation designed
 //! for coding agents to browse and understand crate APIs.
 
+mod cargo;
 mod commands;
+mod error;
 
 use clap::{Parser, Subcommand};
-use commands::{browse, generate};
+use commands::{browse, build};
+use error::Result;
 
 /// A cargo doc for coding agents
 ///
 /// cargo-docmd generates markdown documentation from rustdoc JSON files,
-/// optimized for consumption by coding agents. It provides both generation
-/// and interactive browsing capabilities.
+/// optimized for consumption by coding agents. It provides both build
+/// and browse capabilities.
 #[derive(Parser)]
 #[command(name = "cargo-docmd")]
 #[command(version = "0.1.0")]
@@ -34,21 +37,18 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Generate markdown documentation from rustdoc JSON
+    /// Build markdown documentation from rustdoc JSON
     ///
-    /// Converts rustdoc JSON output into markdown files suitable for coding agents.
-    /// The generated documentation is optimized for API browsing and understanding.
-    Generate {
-        /// Crate name to generate documentation for
+    /// Generates rustdoc JSON using cargo +nightly and parses it to create
+    /// markdown files suitable for coding agents. Output is placed in
+    /// `$CARGO_TARGET_DIR/docmd`.
+    Build {
+        /// Crate name to build documentation for
         #[arg(short, long = "crate", value_name = "CRATE")]
         crate_name: String,
-
-        /// Output directory for generated markdown
-        #[arg(short, long, value_name = "OUTPUT")]
-        output: Option<std::path::PathBuf>,
     },
 
-    /// Browse crate documentation interactively
+    /// Browse crate documentation
     ///
     /// Displays crate documentation in a terminal-friendly format. Optionally,
     /// you can specify a specific item to display only that documentation.
@@ -63,18 +63,17 @@ enum Command {
     },
 }
 
-fn main() {
+fn main() -> Result<()> {
     let args = Args::parse();
 
     match args.command {
-        Command::Generate { crate_name, output } => {
-            generate(
-                crate_name,
-                output.unwrap_or_else(|| std::path::PathBuf::from("docs")),
-            );
+        Command::Build { crate_name } => {
+            build(crate_name)?;
         }
         Command::Browse { crate_name, item } => {
             browse(crate_name, item);
         }
     }
+
+    Ok(())
 }

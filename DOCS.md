@@ -6,69 +6,72 @@ command-line interface commands and options.
 ## Overview
 
 cargo docmd converts rustdoc JSON output into markdown documentation optimized
-for coding agents. The tool provides two primary modes of operation: generate
-markdown files or browse documentation interactively.
+for coding agents. The tool provides two primary modes of operation: build
+markdown files or browse documentation.
 
-The data source comes from rustdoc JSON output, which you can generate using:
-
-```shell
-cargo +nightly rustdoc -- --output-format json -Z unstable-options
-```
-
-For specific crates:
-
-```shell
-cargo +nightly rustdoc -p serde -- --output-format json -Z unstable-options
-```
+The build command automatically generates rustdoc JSON using the nightly
+toolchain and creates markdown files in `$CARGO_TARGET_DIR/docmd`.
 
 ## Commands
 
-### generate
+### build
 
-Generate markdown documentation from rustdoc JSON files.
+Generate rustdoc JSON and create markdown documentation from it.
 
 ```shell
-cargo docmd generate --crate <CRATE>
+cargo docmd build --crate <CRATE>
 ```
 
 #### Options
 
 - `--crate <CRATE>` (or `-c`)
-    - **Required**: Crate name to generate documentation for
+    - **Required**: Crate name to build documentation for
     - Example: `--crate serde`
 
-- `--output <OUTPUT>` (or `-o`)
-    - **Optional (advanced)**: Output directory for generated markdown files.
-      Defaults to `./docs`.
-    - Example: `--output ./docs/serde`
+#### Output Location
+
+Markdown files are placed in `$CARGO_TARGET_DIR/docmd`. If `CARGO_TARGET_DIR` is
+not set, the default is `./target/docmd`.
 
 #### Examples
 
-Generate documentation for serde crate:
+Build documentation for serde crate:
 
 ```shell
-# Use default output directory
-cargo docmd generate --crate serde
-
-# Specify custom output directory
-cargo docmd generate --crate serde --output ./docs/serde
+cargo docmd build --crate serde
 ```
 
-Generate with verbose output:
+Build with verbose output:
 
 ```shell
-cargo docmd -v generate --crate serde
+cargo docmd -v build --crate serde
 ```
+
+#### What It Does
+
+1. Checks that the nightly toolchain is installed
+2. Runs
+   `cargo +nightly rustdoc -p <crate> -- --output-format json -Z unstable-options`
+3. Parses the generated JSON file
+4. Creates the output directory if needed
+5. Logs a summary of parsed items by type
+
+#### Requirements
+
+- Rust nightly toolchain must be installed. Install it with:
+    ```shell
+    rustup install nightly
+    ```
 
 #### Limitations
 
-The generate command currently accepts arguments but does not yet produce actual
-markdown files. This is a placeholder implementation that will be completed in
-future iterations.
+The build command generates rustdoc JSON and parses it, but markdown file
+generation is not yet implemented. The command creates the output directory and
+logs item counts to verify the JSON was parsed correctly.
 
 ### browse
 
-Browse crate documentation interactively in the terminal.
+Browse crate documentation in the terminal.
 
 ```shell
 cargo docmd browse --crate <CRATE>
@@ -101,8 +104,8 @@ cargo docmd browse --crate serde --item Serialize
 #### Limitations
 
 The browse command currently prints the received parameters but does not display
-actual documentation. Interactive browsing functionality will be implemented in
-future iterations.
+documentation. Interactive browsing functionality will be implemented in future
+iterations.
 
 ## Global Options
 
@@ -116,7 +119,7 @@ Increase verbosity of output. Use multiple times for more verbose output (e.g.,
 Examples:
 
 ```shell
-cargo docmd -v generate --crate serde --output ./docs
+cargo docmd -v build --crate serde
 cargo docmd -vv browse --crate serde
 ```
 
@@ -128,7 +131,7 @@ implementation.
 Example:
 
 ```shell
-cargo docmd --config ./config.toml generate --crate serde --output ./docs
+cargo docmd --config ./config.toml build --crate serde
 ```
 
 #### Limitations
@@ -144,7 +147,7 @@ Examples:
 
 ```shell
 cargo docmd --help
-cargo docmd generate --help
+cargo docmd build --help
 cargo docmd browse --help
 ```
 
@@ -161,50 +164,49 @@ cargo docmd --version
 This section documents the current limitations of cargo docmd as of version
 0.1.0.
 
-- **Generate command**: Accepts crate name and output directory but does not
-  produce markdown files yet.
+- **Build command**: Generates rustdoc JSON and parses it, but does not yet
+  produce markdown files. It creates the output directory and logs item counts.
 - **Browse command**: Accepts crate name and optional item parameter but does
   not display documentation yet.
 - **Configuration**: The `--config` option is available but configuration file
   parsing is not implemented.
-- **JSON source**: The tool does not automatically generate rustdoc JSON files.
-  You must run the `cargo rustdoc` command manually before using cargo docmd.
 - **Verbosity**: The `--verbose` flag is accepted but does not affect output
   behavior yet.
 
 ## Error Handling
 
-The CLI uses clap for argument parsing, which provides helpful error messages
-for:
+The CLI provides helpful error messages for common issues.
 
-- Missing required arguments
-- Invalid argument values
-- Unknown subcommands
-- Incorrect option syntax
+### Missing Nightly Toolchain
 
-Example error messages:
+If nightly is not installed, you will see:
 
 ```
-error: the following required arguments were not provided:
-  --crate <CRATE>
-
-Usage: cargo docmd generate --crate <CRATE>
-
-For more information, try '--help'.
+Error: Nightly toolchain is not installed. Install it with: rustup install nightly
 ```
 
+### Failed Cargo Execution
+
+If cargo rustdoc fails (e.g., crate not found), you will see:
+
 ```
-error: unrecognized subcommand 'invalid_command'
+Error: Failed to execute cargo rustdoc for crate 'crate_name':
+<command output>
+```
 
-Usage: cargo docmd [OPTIONS] <COMMAND>
+### JSON Not Found
 
-For more information, try '--help'.
+If the expected JSON file is missing, you will see:
+
+```
+Error: Expected JSON file not found at 'path/to/json'
 ```
 
 ## Exit Codes
 
 - `0`: Command executed successfully
-- `1`: Command failed (argument parsing errors, missing required options, etc.)
+- `1`: Command failed (missing nightly, cargo execution error, JSON parsing
+  error, etc.)
 
 ## Future Enhancements
 
@@ -213,7 +215,6 @@ Planned features for future versions:
 - Full markdown generation from rustdoc JSON
 - Interactive terminal-based documentation browser
 - Configuration file support
-- Automatic rustdoc JSON generation
 - Custom output formatting options
 - Support for multiple crates simultaneously
 - Search and filter capabilities in browse mode

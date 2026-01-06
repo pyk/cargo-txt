@@ -3,8 +3,8 @@
 `cargo doc` for coding agents.
 
 cargo-docmd generates markdown documentation from rustdoc JSON files, optimized
-for consumption by coding agents. It provides both generation and interactive
-browsing capabilities.
+for consumption by coding agents. It provides both generation and browsing
+capabilities.
 
 ## Features
 
@@ -27,13 +27,13 @@ cargo docmd --help
 
 ## Quick Start
 
-Generate markdown documentation from rustdoc JSON:
+Generate rustdoc JSON and markdown documentation:
 
 ```shell
-cargo docmd generate --crate serde
+cargo docmd build --crate serde
 ```
 
-Browse crate documentation interactively:
+Browse crate documentation:
 
 ```shell
 cargo docmd browse --crate serde
@@ -41,30 +41,30 @@ cargo docmd browse --crate serde
 
 ## Usage
 
-### Generate Command
+### Build Command
 
 Generate markdown documentation for a crate:
 
 ```shell
-cargo docmd generate --crate <CRATE>
+cargo docmd build --crate <CRATE>
 ```
 
 Options:
 
-- `-c, --crate <CRATE>` - Crate name to generate documentation for (required)
-- `-o, --output <OUTPUT>` - Output directory for generated markdown (optional,
-  advanced)
+- `-c, --crate <CRATE>` - Crate name to build documentation for (required)
 - `-v, --verbose...` - Increase verbosity of output
+
+Output is placed in `$CARGO_TARGET_DIR/docmd` (defaults to `./target/docmd`).
 
 Example:
 
 ```shell
-cargo docmd generate --crate serde --output ./serde-docs
+cargo docmd build --crate serde
 ```
 
 ### Browse Command
 
-Browse crate documentation interactively:
+Browse crate documentation:
 
 ```shell
 cargo docmd browse --crate <CRATE>
@@ -98,8 +98,12 @@ These options apply to all subcommands:
 
 ## Current Status
 
-The CLI structure is implemented with placeholder handlers. The `generate` and
-`browse` commands accept arguments but do not yet produce actual documentation.
+- **Build command**: Fully implemented. Generates rustdoc JSON using the nightly
+  toolchain, parses it, and creates the output directory. Logs a summary of
+  parsed items by type. Markdown file generation will be added in future
+  iterations.
+- **Browse command**: Placeholder implementation. Accepts crate name and item
+  parameters but does not display documentation yet.
 
 ## Development
 

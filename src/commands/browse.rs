@@ -1,10 +1,10 @@
-//! Interactive browsing of crate documentation.
+//! Browsing of crate documentation.
 //!
-//! This module provides the browse command which allows users to interactively
-//! explore crate documentation. Users can either browse an entire crate or
-//! display a specific item.
+//! This module provides the browse command which allows users to explore
+//! crate documentation. Users can either browse an entire crate or display a
+//! specific item.
 
-/// Browse crate documentation interactively.
+/// Browse crate documentation.
 ///
 /// This function displays documentation for the specified crate. If an item is
 /// provided, only that specific item's documentation is shown.
