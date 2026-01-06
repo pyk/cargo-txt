@@ -167,10 +167,13 @@ return Some(val);
 
 ## 5. Group tests by behavior and enforce naming prefixes
 
-Organize unit tests into distinct visual groups based on functionality or user
-workflows (e.g., Execution, Errors, Config). Use prominent comment separators.
-Prefix test function names with their group category (e.g., `execution_`,
-`error_`).
+Organize unit tests into a single `tests` module per file. Use comment
+separators to create distinct visual groups based on functionality or user
+workflows (e.g., Execution, Errors, Config). Prefix test function names with
+their group category (e.g., `execution_`, `error_`).
+
+Do not create multiple test modules within a single file. All tests should be
+grouped within one `mod tests` block using comment separators for organization.
 
 ```rust
 ///////////////////////////////////////////////////////////////////////////////
