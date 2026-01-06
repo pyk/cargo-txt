@@ -481,6 +481,41 @@ This approach provides:
 - **Clearer data flow**: Linear, easy-to-follow dependency chain
 - **Easier testing**: Functions can be tested independently
 
+## 11. Use module-prefixed function calls for internal modules
+
+All internal modules should be consumed using module-prefixed function calls
+rather than importing individual functions. This makes the origin of functions
+clear and improves code readability by explicitly showing which module provides
+each function.
+
+Use `use crate::module_name;` then call functions as `module_name::function()`.
+
+🛑 Bad (Individual imports):
+
+```rust
+use crate::cargo::{nightly, rustdoc};
+
+nightly()?;
+rustdoc(&crate_name)?;
+```
+
+✅ Good (Module prefix):
+
+```rust
+use crate::cargo;
+
+cargo::nightly()?;
+cargo::rustdoc(&crate_name)?;
+```
+
+Function names should be intuitive when used as `module_name::function`. The
+function name should clearly indicate what it does, and when combined with the
+module name, should describe the operation intuitively.
+
+For example, `cargo::rustdoc` implies the function executes the `cargo rustdoc`
+CLI command under the hood. This naming convention makes code self-documenting
+and easy to understand at a glance.
+
 # Writing Guidelines
 
 **CRITICAL**: Follow these strict writing guidelines for all documentation.
