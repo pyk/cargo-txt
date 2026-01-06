@@ -7,6 +7,8 @@ use std::path::Path;
 
 use crate::cargo::{check_nightly_installed, generate_rustdoc_json};
 use crate::error::{BuildError, Error, Result};
+use crate::markdown;
+use crate::markdown::utils;
 
 /// Build markdown documentation from rustdoc JSON.
 ///
@@ -23,6 +25,10 @@ pub fn build(crate_name: String) -> Result<()> {
     let krate = parse_rustdoc_json(&json_path)?;
 
     log_item_summary(&krate);
+
+    // Generate markdown index
+    // TODO: this should be simply markdown::index::generate()
+    markdown::index::generate_index(&krate, &output_dir)?;
 
     println!("Documentation built successfully for {}", crate_name);
     println!("Output directory: {}", output_dir.display());
@@ -92,7 +98,7 @@ fn log_item_summary(krate: &rustdoc_types::Crate) {
     let mut counts: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
 
     for item in krate.index.values() {
-        let type_name = get_item_type_name(&item.inner);
+        let type_name = utils::get_item_type_name(&item.inner);
         *counts.entry(type_name).or_insert(0) += 1;
     }
 
@@ -107,45 +113,18 @@ fn log_item_summary(krate: &rustdoc_types::Crate) {
     println!();
 }
 
-/// Get a human-readable name for an item type.
-///
-/// This function converts rustdoc_types::ItemEnum variants into their
-/// human-readable string names for display purposes.
-fn get_item_type_name(inner: &rustdoc_types::ItemEnum) -> &'static str {
-    match inner {
-        rustdoc_types::ItemEnum::Module(_) => "Module",
-        rustdoc_types::ItemEnum::ExternCrate { .. } => "Extern Crate",
-        rustdoc_types::ItemEnum::Use(_) => "Use Statement",
-        rustdoc_types::ItemEnum::Union(_) => "Union",
-        rustdoc_types::ItemEnum::Struct(_) => "Struct",
-        rustdoc_types::ItemEnum::StructField(_) => "Struct Field",
-        rustdoc_types::ItemEnum::Enum(_) => "Enum",
-        rustdoc_types::ItemEnum::Variant(_) => "Variant",
-        rustdoc_types::ItemEnum::Function(_) => "Function",
-        rustdoc_types::ItemEnum::Trait(_) => "Trait",
-        rustdoc_types::ItemEnum::TraitAlias(_) => "Trait Alias",
-        rustdoc_types::ItemEnum::Impl(_) => "Impl Block",
-        rustdoc_types::ItemEnum::TypeAlias(_) => "Type Alias",
-        rustdoc_types::ItemEnum::Constant { .. } => "Constant",
-        rustdoc_types::ItemEnum::Static(_) => "Static",
-        rustdoc_types::ItemEnum::ExternType => "Extern Type",
-        rustdoc_types::ItemEnum::Macro(_) => "Macro",
-        rustdoc_types::ItemEnum::ProcMacro(_) => "Proc Macro",
-        rustdoc_types::ItemEnum::Primitive(_) => "Primitive",
-        rustdoc_types::ItemEnum::AssocConst { .. } => "Associated Constant",
-        rustdoc_types::ItemEnum::AssocType { .. } => "Associated Type",
-    }
-}
-
 ///////////////////////////////////////////////////////////////////////////////
-/// Error Tests
+// Tests
 
 #[cfg(test)]
-mod error_tests {
+mod tests {
     use super::*;
 
+    /////////////////////////////////////////////////////////////////////////////
+    // Error Tests
+
     #[test]
-    fn parse_rustdoc_json_returns_error_for_missing_file() {
+    fn error_parse_returns_error_for_missing_file() {
         let result = parse_rustdoc_json(Path::new("/nonexistent/path.json"));
         assert!(result.is_err());
     }

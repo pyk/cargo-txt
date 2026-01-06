@@ -6,6 +6,7 @@
 mod cargo;
 mod commands;
 mod error;
+mod markdown;
 
 use clap::{Parser, Subcommand};
 use commands::{browse, build};

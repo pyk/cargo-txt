@@ -55,6 +55,7 @@ cargo docmd -v build --crate serde
 3. Parses the generated JSON file
 4. Creates the output directory if needed
 5. Logs a summary of parsed items by type
+6. Generates an `index.md` file listing all public items grouped by type
 
 #### Requirements
 
@@ -65,9 +66,10 @@ cargo docmd -v build --crate serde
 
 #### Limitations
 
-The build command generates rustdoc JSON and parses it, but markdown file
-generation is not yet implemented. The command creates the output directory and
-logs item counts to verify the JSON was parsed correctly.
+The build command generates rustdoc JSON, parses it, and creates an index page.
+Individual item markdown generation is not yet implemented. The command creates
+the output directory and logs item counts to verify the JSON was parsed
+correctly.
 
 ### browse
 
@@ -159,13 +161,65 @@ Print version information.
 cargo docmd --version
 ```
 
+## Markdown Output Format
+
+The markdown framework generates documentation files optimized for coding
+agents. All files follow a consistent structure and naming convention.
+
+### File Naming Convention
+
+Markdown files use a deterministic naming scheme:
+
+- Replace `::` with `-` throughout the item path
+- Remove generic parameters (e.g., `HashMap<K, V>` becomes `HashMap`)
+- Add `.md` extension
+
+Examples:
+
+- `std::vec::Vec` → `std-vec-Vec.md`
+- `std::collections::HashMap<K, V>` → `std-collections-HashMap.md`
+- `serde::Serialize::serialize` → `serde-Serialize-serialize.md`
+
+### Index Page
+
+The `index.md` file serves as a navigation hub and contains:
+
+- Crate name and documentation
+- Item counts grouped by type
+- Links to all public items
+- "Next Actions" section for common operations
+
+### Standard Markdown Structure
+
+All generated markdown files follow this structure:
+
+```markdown
+# Item Name
+
+Item documentation text from rustdoc.
+
+## Signature
+
+Code block showing the item signature.
+
+## Details
+
+Additional information specific to the item type.
+
+## Next Actions
+
+- View source code: `cargo docmd browse --item <id>`
+- Find related items: `cargo docmd browse --type <type>`
+```
+
 ## Current Limitations
 
 This section documents the current limitations of cargo docmd as of version
 0.1.0.
 
-- **Build command**: Generates rustdoc JSON and parses it, but does not yet
-  produce markdown files. It creates the output directory and logs item counts.
+- **Build command**: Generates rustdoc JSON, parses it, and creates an index
+  page. Individual item markdown generation is not yet implemented. The command
+  creates the output directory and logs item counts.
 - **Browse command**: Accepts crate name and optional item parameter but does
   not display documentation yet.
 - **Configuration**: The `--config` option is available but configuration file
@@ -212,9 +266,11 @@ Error: Expected JSON file not found at 'path/to/json'
 
 Planned features for future versions:
 
-- Full markdown generation from rustdoc JSON
+- Individual item markdown generation for all 21 rustdoc item types
 - Interactive terminal-based documentation browser
 - Configuration file support
 - Custom output formatting options
 - Support for multiple crates simultaneously
 - Search and filter capabilities in browse mode
+- Detailed signature rendering with type information
+- Cross-reference links between related items
