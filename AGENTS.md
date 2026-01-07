@@ -24,7 +24,18 @@ When implementing a plan:
 6. Do not use git restore commands (can cause data loss).
 7. Use `cargo test` to run tests and `rust-check` after changes.
 8. Review and update the plan checklist after implementation.
-9. Review the edited files:
+
+# Reviewing Mode
+
+When reviewing staged changes:
+
+1. Update the plan status as in progress.
+2. Review `README.md` to understand the project.
+3. Review `DOCS.md` (if exists) to understand the implementation.
+4. Use the thinking tool.
+5. Follow the instructions in `.zed/agent/instructions/review-changes.md`.
+6. Use `cargo test` to run tests and `rust-check` to verify changes.
+7. Review the edited files:
     - DOCS.md must strictly follow the guideline defined in
       `.zed/agent/guidelines/writing-docs.md`.
     - README.md must strictly follow the guideline defined in
