@@ -314,32 +314,150 @@ This section documents current limitations of cargo docmd as of version 0.1.0.
 
 ## Error Handling
 
-The CLI provides helpful error messages for common issues.
+The CLI uses centralized error handling with the `std::error::Error` trait for
+automatic error display.
 
-### Missing Nightly Toolchain
+### Error Architecture
 
-If nightly is not installed, you will see:
+All error functionality is centralized in the `src/error.rs` module, which
+defines a clear error hierarchy:
+
+- `Error` - Top-level error enum wrapping all specific error types
+    - `BuildError` - Errors during the build process (cargo execution, HTML
+      parsing, markdown generation, etc.)
+        - May have `HtmlExtractError` as its source via
+          `BuildError::HtmlParseFailed`
+- `HtmlExtractError` - Low-level HTML parsing errors (selector failures, missing
+  elements)
+
+All error types implement the `std::error::Error` trait with proper `source()`
+methods for error chain propagation.
+
+### Error Hierarchy
+
+The error structure follows a clear separation of concerns:
 
 ```
-Error: Nightly toolchain is not installed. Install it with: rustup install nightly
+Error (top-level application error)
+└── BuildError (build process errors)
+    ├── CargoExecutionFailed
+    ├── OutputDirCreationFailed
+    ├── HtmlParseFailed (may wrap HtmlExtractError)
+    │   └── HtmlExtractError (low-level HTML parsing)
+    ├── DocNotGenerated
+    └── MarkdownWriteFailed
 ```
 
-### Failed Cargo Execution
+This hierarchy ensures:
 
-If cargo rustdoc fails (e.g., crate not found), you will see:
+1. **Clear separation**: BuildError wraps low-level errors (HtmlExtractError) at
+   appropriate boundaries
+2. **Proper context**: File paths are added at the BuildError level when
+   wrapping HtmlExtractError, not at the HTML extraction level
+3. **Consistent propagation**: The `?` operator automatically converts errors
+   through the `From` trait implementations
+4. **Full error chains**: Rust's standard library displays the complete error
+   hierarchy via the `Error::source()` method
+5. **Simplified structure**: All build process errors (including markdown
+   generation) are consolidated in BuildError
+
+### Error Propagation
+
+All fallible functions use `error::Result<T>` (a type alias for
+`std::result::Result<T, Error>`) and propagate errors using the `?` operator,
+including the main function. When the main function returns an error:
+
+1. Rust's standard library automatically displays the error using the `Display`
+   trait
+2. The error chain is automatically displayed via the `Error::source()` method
+3. The program exits with status code 1
+
+#### Error Propagation Example
+
+Here's how errors propagate through the hierarchy in a typical HTML parsing
+operation:
+
+```rust
+// In src/items/type_alias.rs
+pub fn from_str(html_str: &str) -> error::Result<Self> {
+    let name = extract_name(&document)?;  // Returns error::Result<String>
+    // ...
+}
+
+fn extract_name(document: &Html) -> error::Result<String> {
+    let selector = Selector::parse("h1 .type")?;  // HtmlExtractError converted to Error
+    // ...
+}
+
+// In src/commands/build.rs
+let type_alias = error::wrap_with_path(
+    items::type_alias::TypeAlias::from_str(&html_content),
+    path.clone(),  // Path context added here
+)?;
+
+// Error chain displayed to user:
+// Error: Build(HtmlParseFailed { path: "path/to/type.html", source: ... })
+// Caused by:
+//   Element not found with selector 'h1 .type'
+```
+
+#### Error Conversion Chain
+
+The `From` trait implementations enable automatic error conversion:
+
+1. `HtmlExtractError` → `Error` via `From<HtmlExtractError>`
+    - Converts to `Error::Build(HtmlExtractError.into())`
+2. `BuildError` → `Error` via `From<BuildError>`
+    - Wraps in `Error::Build(build_error)`
+
+This allows the `?` operator to automatically propagate errors through the
+correct conversion path.
+
+### Common Error Messages
+
+#### Failed Cargo Execution
+
+If cargo doc fails (e.g., crate not found), you will see:
 
 ```
-Error: Failed to execute cargo rustdoc for crate 'crate_name':
-<command output>
+Error: Build(CargoExecutionFailed { crate_name: "crate_name", output: "<command output>" })
 ```
 
-### Documentation Not Generated
+#### Documentation Not Generated
 
 If HTML documentation was not generated for the crate, you will see:
 
 ```
-Error: Documentation was not generated for crate 'crate_name'. Expected directory at 'path/to/doc'
+Error: Build(DocNotGenerated { crate_name: "crate_name", expected_path: "path/to/doc" })
 ```
+
+#### HTML Parsing Error
+
+If HTML parsing fails, you will see the error with its full chain, demonstrating
+the error hierarchy:
+
+```
+Error: Build(HtmlParseFailed { path: "path/to/type.html", source: ElementNotFound { selector: "h1 .type" } })
+Caused by:
+  Element not found with selector 'h1 .type'
+```
+
+For markdown write errors:
+
+```
+Error: Build(MarkdownWriteFailed { path: "path/to/Type.md", error: "Permission denied" })
+```
+
+The error shows:
+
+1. The top-level `Error` wrapping a `BuildError`
+2. The `BuildError::HtmlParseFailed` variant with the file path context
+3. The underlying `HtmlExtractError::ElementNotFound` as the source via
+   `source()`
+
+This full chain provides context at each level (path at BuildError level,
+selector at HtmlExtractError level) while maintaining a clean separation of
+concerns.
 
 ## Exit Codes
 

@@ -88,7 +88,7 @@ impl TypeAlias {
     /// and returns a `Result` containing the parsed `TypeAlias` or an
     /// `HtmlExtractError` if required HTML elements are not found or if the
     /// HTML structure is unexpected.
-    pub fn from_str(html_str: &str) -> std::result::Result<Self, error::HtmlExtractError> {
+    pub fn from_str(html_str: &str) -> error::Result<Self> {
         let document = Html::parse_document(html_str);
 
         let name = extract_name(&document)?;
@@ -163,7 +163,7 @@ impl TypeAlias {
 /// Extract the type alias name from the HTML.
 ///
 /// The name is found in the main heading inside a `<span class="type">` element.
-fn extract_name(document: &Html) -> std::result::Result<String, error::HtmlExtractError> {
+fn extract_name(document: &Html) -> error::Result<String> {
     let selector = Selector::parse("h1 .type").map_err(|error| {
         error::HtmlExtractError::SelectorParseFailed {
             selector: "h1 .type".to_string(),
@@ -183,7 +183,7 @@ fn extract_name(document: &Html) -> std::result::Result<String, error::HtmlExtra
 /// Extract the type alias declaration from the HTML.
 ///
 /// The declaration is found in the first `<pre class="rust item-decl">` element.
-fn extract_declaration(document: &Html) -> std::result::Result<String, error::HtmlExtractError> {
+fn extract_declaration(document: &Html) -> error::Result<String> {
     let selector = Selector::parse("pre.rust.item-decl").map_err(|error| {
         error::HtmlExtractError::SelectorParseFailed {
             selector: "pre.rust.item-decl".to_string(),
@@ -197,12 +197,16 @@ fn extract_declaration(document: &Html) -> std::result::Result<String, error::Ht
         }
     })?;
 
-    let code_element = element
-        .select(&Selector::parse("code").unwrap())
-        .next()
-        .ok_or_else(|| error::HtmlExtractError::ElementNotFound {
-            selector: "pre.rust.item-decl code".to_string(),
+    let code_selector =
+        Selector::parse("code").map_err(|error| error::HtmlExtractError::SelectorParseFailed {
+            selector: "code".to_string(),
+            error: error.to_string(),
         })?;
+    let code_element = element.select(&code_selector).next().ok_or_else(|| {
+        error::HtmlExtractError::ElementNotFound {
+            selector: "pre.rust.item-decl code".to_string(),
+        }
+    })?;
 
     Ok(code_element.text().collect::<String>().trim().to_string())
 }
@@ -210,7 +214,7 @@ fn extract_declaration(document: &Html) -> std::result::Result<String, error::Ht
 /// Extract the documentation text from the HTML.
 ///
 /// The documentation is found in the first `<div class="docblock">` element.
-fn extract_doc(document: &Html) -> std::result::Result<String, error::HtmlExtractError> {
+fn extract_doc(document: &Html) -> error::Result<String> {
     let selector = Selector::parse("div.docblock").map_err(|error| {
         error::HtmlExtractError::SelectorParseFailed {
             selector: "div.docblock".to_string(),
@@ -231,7 +235,7 @@ fn extract_doc(document: &Html) -> std::result::Result<String, error::HtmlExtrac
 ///
 /// The aliased type is found in the element immediately following the section
 /// with id="aliased-type", which is a `<pre class="rust item-decl">` element.
-fn extract_aliased_type(document: &Html) -> std::result::Result<String, error::HtmlExtractError> {
+fn extract_aliased_type(document: &Html) -> error::Result<String> {
     let selector = Selector::parse("#aliased-type + pre.rust.item-decl").map_err(|error| {
         error::HtmlExtractError::SelectorParseFailed {
             selector: "#aliased-type + pre.rust.item-decl".to_string(),
@@ -245,12 +249,16 @@ fn extract_aliased_type(document: &Html) -> std::result::Result<String, error::H
         return Ok(String::new());
     };
 
-    let code_element = element
-        .select(&Selector::parse("code").unwrap())
-        .next()
-        .ok_or_else(|| error::HtmlExtractError::ElementNotFound {
-            selector: "#aliased-type + pre.rust.item-decl code".to_string(),
+    let code_selector =
+        Selector::parse("code").map_err(|error| error::HtmlExtractError::SelectorParseFailed {
+            selector: "code".to_string(),
+            error: error.to_string(),
         })?;
+    let code_element = element.select(&code_selector).next().ok_or_else(|| {
+        error::HtmlExtractError::ElementNotFound {
+            selector: "#aliased-type + pre.rust.item-decl code".to_string(),
+        }
+    })?;
 
     Ok(code_element.text().collect::<String>().trim().to_string())
 }
@@ -261,19 +269,16 @@ fn extract_aliased_type(document: &Html) -> std::result::Result<String, error::H
 /// `<section class="variant">` elements. Each variant section is followed by
 /// a sibling `<div class="docblock">` element containing the variant's documentation.
 fn extract_variants(document: &Html) -> Vec<Variant> {
-    let variants_div_selector = match Selector::parse("div.variants") {
-        Ok(sel) => sel,
-        Err(_) => return Vec::new(),
+    let Ok(variants_div_selector) = Selector::parse("div.variants") else {
+        return Vec::new();
     };
 
-    let variant_selector = match Selector::parse("section.variant") {
-        Ok(sel) => sel,
-        Err(_) => return Vec::new(),
+    let Ok(variant_selector) = Selector::parse("section.variant") else {
+        return Vec::new();
     };
 
-    let docblock_selector = match Selector::parse("div.docblock") {
-        Ok(sel) => sel,
-        Err(_) => return Vec::new(),
+    let Ok(docblock_selector) = Selector::parse("div.docblock") else {
+        return Vec::new();
     };
 
     let mut variants = Vec::new();
@@ -283,9 +288,8 @@ fn extract_variants(document: &Html) -> Vec<Variant> {
         let docblocks: Vec<_> = variants_div.select(&docblock_selector).collect();
 
         for (i, variant_element) in variant_sections.iter().enumerate() {
-            let signature = match extract_variant_signature(variant_element) {
-                Ok(sig) => sig,
-                Err(_) => continue,
+            let Ok(signature) = extract_variant_signature(variant_element) else {
+                continue;
             };
 
             let doc = if i < docblocks.len() {
@@ -304,9 +308,7 @@ fn extract_variants(document: &Html) -> Vec<Variant> {
 /// Extract the variant signature from a variant element.
 ///
 /// The signature is found in the `<h3 class="code-header">` element.
-fn extract_variant_signature(
-    element: &scraper::ElementRef,
-) -> std::result::Result<String, error::HtmlExtractError> {
+fn extract_variant_signature(element: &scraper::ElementRef) -> error::Result<String> {
     let selector = Selector::parse("h3.code-header").map_err(|error| {
         error::HtmlExtractError::SelectorParseFailed {
             selector: "h3.code-header".to_string(),

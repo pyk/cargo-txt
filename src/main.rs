@@ -10,7 +10,6 @@ mod items;
 
 use clap::{Parser, Subcommand};
 use commands::{browse, build};
-use std::error::Error;
 
 /// A cargo doc for coding agents
 ///
@@ -64,23 +63,13 @@ enum Command {
     },
 }
 
-fn main() {
+fn main() -> error::Result<()> {
     let args = Args::parse();
 
-    if let Err(error) = match args.command {
-        Command::Build { crate_name } => build(crate_name),
-        Command::Browse { crate_name, item } => {
-            browse(crate_name, item);
-            Ok(())
-        }
-    } {
-        eprintln!("Error: {}", error);
-        let mut source: Option<&(dyn std::error::Error + 'static)> = error.source();
-        while let Some(cause) = source {
-            eprintln!("Caused by:");
-            eprintln!("  {}", cause);
-            source = cause.source();
-        }
-        std::process::exit(1);
+    match args.command {
+        Command::Build { crate_name } => build(crate_name)?,
+        Command::Browse { crate_name, item } => browse(crate_name, item)?,
     }
+
+    Ok(())
 }

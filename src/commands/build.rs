@@ -98,13 +98,10 @@ fn create_output_directory(path: &std::path::Path) -> error::Result<()> {
 /// and collects all HTML file paths, handling subdirectories recursively.
 fn collect_html_files_recursive(dir: &std::path::Path) -> error::Result<Vec<std::path::PathBuf>> {
     let mut html_files = Vec::new();
-    let entries = error::wrap_with_path(std::fs::read_dir(dir), dir.to_path_buf())?;
+    let entries = error::wrap_with_path(std::fs::read_dir(dir), dir)?;
 
     for entry in entries {
-        let entry = match entry {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
+        let Ok(entry) = entry else { continue };
 
         let path = entry.path();
 
@@ -148,12 +145,10 @@ fn parse_html_directory(
         }
 
         // Parse the HTML file
-        let html_content = error::wrap_with_path(std::fs::read_to_string(&path), path.clone())?;
+        let html_content = error::wrap_with_path(std::fs::read_to_string(&path), &path)?;
 
-        let type_alias = error::wrap_with_path(
-            items::type_alias::TypeAlias::from_str(&html_content),
-            path.clone(),
-        )?;
+        let type_alias =
+            error::wrap_with_path(items::type_alias::TypeAlias::from_str(&html_content), &path)?;
 
         // Generate markdown
         let markdown_content = type_alias.markdown();
@@ -162,7 +157,7 @@ fn parse_html_directory(
         let markdown_path = output_dir.join(format!("{}.md", type_alias.name));
 
         std::fs::write(&markdown_path, markdown_content).map_err(|error| {
-            error::MarkdownError::FileWriteFailed(markdown_path.clone(), error.to_string())
+            error::BuildError::markdown_write_failed(&markdown_path, error.to_string())
         })?;
 
         type_alias_count += 1;

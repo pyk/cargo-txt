@@ -4,7 +4,55 @@
 //! providing consistent error handling and user-friendly error messages.
 
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+/// Result type alias for convenience.
+///
+/// Using this alias throughout the application simplifies error handling
+/// and ensures consistent error types.
+pub type Result<T> = std::result::Result<T, Error>;
+
+/// Top-level error type for cargo-docmd operations.
+///
+/// This enum wraps specific error types for different operations,
+/// allowing for targeted error handling while maintaining a common
+/// error type for the application.
+#[derive(Debug)]
+pub enum Error {
+    /// Errors that occur during the build process
+    Build(BuildError),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::Build(err) => write!(f, "{}", err),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+impl From<BuildError> for Error {
+    fn from(err: BuildError) -> Self {
+        Error::Build(err)
+    }
+}
+
+impl From<HtmlExtractError> for Error {
+    fn from(err: HtmlExtractError) -> Self {
+        Error::Build(err.into())
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Self {
+        Error::Build(BuildError::markdown_write_failed(
+            &PathBuf::from("<unknown>"),
+            err.to_string(),
+        ))
+    }
+}
 
 /// Errors that occur during HTML extraction operations.
 ///
@@ -35,61 +83,10 @@ impl fmt::Display for HtmlExtractError {
 
 impl std::error::Error for HtmlExtractError {}
 
-/// Top-level error type for cargo-docmd operations.
+/// Errors that occur during the build process.
 ///
-/// This enum wraps specific error types for different operations,
-/// allowing for targeted error handling while maintaining a common
-/// error type for the application.
-#[derive(Debug)]
-pub enum Error {
-    /// Errors that occur during the build process
-    Build(BuildError),
-    /// Errors that occur during markdown generation
-    Markdown(MarkdownError),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::Build(err) => write!(f, "{}", err),
-            Error::Markdown(err) => write!(f, "{}", err),
-        }
-    }
-}
-
-impl std::error::Error for Error {}
-
-/// Result type alias for convenience.
-///
-/// Using this alias throughout the application simplifies error handling
-/// and ensures consistent error types.
-pub type Result<T> = std::result::Result<T, Error>;
-
-impl From<BuildError> for Error {
-    fn from(err: BuildError) -> Self {
-        Error::Build(err)
-    }
-}
-
-impl From<MarkdownError> for Error {
-    fn from(err: MarkdownError) -> Self {
-        Error::Markdown(err)
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
-        Error::Markdown(MarkdownError::FileWriteFailed(
-            PathBuf::from("<unknown>"),
-            err.to_string(),
-        ))
-    }
-}
-
-/// Errors that occur during HTML extraction operations.
-///
-/// These errors cover operations such as checking for the nightly toolchain,
-/// executing cargo commands, parsing JSON output, and managing output directories.
+/// These errors cover all build operations including cargo command execution,
+/// HTML parsing, markdown generation, and file system operations.
 #[derive(Debug)]
 pub enum BuildError {
     /// Cargo command execution failed
@@ -106,6 +103,8 @@ pub enum BuildError {
         crate_name: String,
         expected_path: PathBuf,
     },
+    /// Failed to write markdown file
+    MarkdownWriteFailed { path: PathBuf, error: String },
 }
 
 impl fmt::Display for BuildError {
@@ -145,6 +144,14 @@ impl fmt::Display for BuildError {
                     expected_path.display()
                 )
             }
+            BuildError::MarkdownWriteFailed { path, error } => {
+                write!(
+                    f,
+                    "Failed to write markdown file '{}': {}",
+                    path.display(),
+                    error
+                )
+            }
         }
     }
 }
@@ -167,40 +174,29 @@ impl From<HtmlExtractError> for BuildError {
     }
 }
 
+impl BuildError {
+    /// Creates a new MarkdownWriteFailed error from a path and error message.
+    pub fn markdown_write_failed(path: &Path, error: String) -> Self {
+        BuildError::MarkdownWriteFailed {
+            path: path.to_path_buf(),
+            error,
+        }
+    }
+}
+
 /// Wrap a result with a path error context.
 ///
 /// This helper function wraps any error into BuildError::HtmlParseFailed,
 /// adding the file path information for better error reporting.
-pub fn wrap_with_path<T, E>(result: std::result::Result<T, E>, path: PathBuf) -> Result<T>
+pub fn wrap_with_path<T, E>(result: std::result::Result<T, E>, path: &Path) -> Result<T>
 where
     E: std::error::Error + Send + Sync + 'static,
 {
     result.map_err(|error| {
         BuildError::HtmlParseFailed {
-            path,
+            path: path.to_path_buf(),
             source: Box::new(error),
         }
         .into()
     })
 }
-
-/// Errors that occur during markdown generation.
-///
-/// These errors cover file operations when creating markdown documentation files.
-#[derive(Debug)]
-pub enum MarkdownError {
-    /// Failed to write a markdown file
-    FileWriteFailed(PathBuf, String),
-}
-
-impl fmt::Display for MarkdownError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MarkdownError::FileWriteFailed(path, error) => {
-                write!(f, "Failed to write file '{}': {}", path.display(), error)
-            }
-        }
-    }
-}
-
-impl std::error::Error for MarkdownError {}
