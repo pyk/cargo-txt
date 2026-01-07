@@ -77,6 +77,25 @@ Available crates: clap, rustdoc-types, serde, serde_json, tempfile
 Only installed dependencies can be built. Add the crate to Cargo.toml as a dependency first.
 ```
 
+### Feature Detection
+
+cargo-docmd automatically detects which features are enabled for a crate from
+your Cargo.toml. When you run `cargo docmd build <crate>`, the tool:
+
+1. Reads your Cargo.toml via cargo metadata
+2. Extracts the enabled features for the specified crate
+3. Passes those features to cargo doc when generating documentation
+
+Example:
+
+```toml
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+```
+
+Running `cargo docmd build clap` will automatically use the `derive` feature
+when generating documentation.
+
 ### Browse Command
 
 Browse crate documentation:

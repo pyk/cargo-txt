@@ -46,11 +46,24 @@ cargo docmd build serde
 
 1. Runs `cargo metadata --no-deps --format-version 1` to get project information
 2. Validates that the requested crate is an installed dependency
-3. Runs `cargo doc --package <crate> --no-deps` to generate HTML
+3. Runs `cargo doc --package <crate> --no-deps` with the dependency's feature
+   configuration to generate HTML
 4. Parses type alias HTML files from the generated documentation
 5. Creates the output directory if needed
 6. Generates markdown files for type aliases only
 7. Logs a summary of generated files
+
+#### Feature Detection
+
+The build command automatically detects which features are enabled for a crate
+from your Cargo.toml and passes them to cargo doc when generating documentation.
+This ensures the generated documentation matches your project's actual feature
+configuration.
+
+- Features listed in `features = [...]` are passed as `--features feat1,feat2`
+- `default-features = false` is passed as `--no-default-features`
+- No feature flags are added when the dependency uses default features and has
+  no specific features enabled
 
 #### Crate Validation
 

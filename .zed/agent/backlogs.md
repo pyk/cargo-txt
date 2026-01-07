@@ -1,29 +1,3 @@
-## rustdoc generation
-
-the rustdoc command accept `features` flag:
-
-```
-cargo rustdoc --help
-...
-Feature Selection:
-  -F, --features <FEATURES>  Space or comma separated list of features to activate
-      --all-features         Activate all available features
-      --no-default-features  Do not activate the `default` feature
-...
-```
-
-when running the rustdoc we should include the specified feature in the
-`cargo metadata` output.
-
-for example, `clap` crate. When the docmd is executed with:
-
-```sh
-cargo docmd build --crate clap
-```
-
-it should look at metadata which feature is enabled, then use it to build the
-rustdoc json generation command.
-
 ## rustdoc file name
 
 The current approach to determining the file json path is over-engineered.

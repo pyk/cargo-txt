@@ -15,25 +15,37 @@ pub fn build(crate_name: String) -> error::Result<()> {
     // Get cargo metadata and validate the crate
     let metadata = cargo::metadata()?;
 
-    // Validate that the requested crate is an installed dependency
-    let is_valid = metadata.packages[0]
+    // Find the dependency for the requested crate
+    let dependency = metadata.packages[0]
         .dependencies
         .iter()
-        .any(|dep| dep.name == crate_name);
-
-    if !is_valid {
-        return Err(error::BuildError::InvalidCrateName {
-            requested: crate_name,
+        .find(|dep| dep.name == crate_name)
+        .ok_or_else(|| error::BuildError::InvalidCrateName {
+            requested: crate_name.clone(),
             available: metadata.packages[0]
                 .dependencies
                 .iter()
                 .map(|dep| dep.name.clone())
                 .collect(),
-        }
-        .into());
+        })?;
+
+    // Log which features are being used
+    if !dependency.features.is_empty() {
+        println!(
+            "Building documentation for {} with features: {}",
+            crate_name,
+            dependency.features.join(", ")
+        );
     }
 
-    cargo::doc(&crate_name, &metadata.target_directory)?;
+    // Generate HTML documentation with dependency's feature configuration
+    let feature_refs: Vec<&str> = dependency.features.iter().map(|s| s.as_str()).collect();
+    cargo::doc(
+        &crate_name,
+        &metadata.target_directory,
+        &feature_refs,
+        dependency.uses_default_features,
+    )?;
 
     let html_dir = get_html_dir(&crate_name, &metadata.target_directory)?;
     let output_dir = get_output_dir(&metadata.target_directory)?;

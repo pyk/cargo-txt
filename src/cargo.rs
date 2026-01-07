@@ -24,7 +24,20 @@ pub struct Package {
 /// Dependency information for a package.
 #[derive(Debug, Deserialize)]
 pub struct Dependency {
+    /// Name of the dependency crate
     pub name: String,
+
+    /// Features enabled for this dependency
+    pub features: Vec<String>,
+
+    /// Whether default features are enabled
+    #[serde(default = "default_true")]
+    pub uses_default_features: bool,
+}
+
+/// Default value for uses_default_features.
+fn default_true() -> bool {
+    true
 }
 
 /// Get cargo metadata for the current project.
@@ -55,12 +68,26 @@ pub fn metadata() -> error::Result<Metadata> {
 
 /// Generate HTML documentation for a specific crate.
 ///
-/// This function executes `cargo doc --package <crate> --no-deps` to generate
-/// rustdoc HTML files for the specified crate, then validates that the output
-/// directory exists.
-pub fn doc(crate_name: &str, target_dir: &str) -> error::Result<()> {
-    let output = std::process::Command::new("cargo")
-        .args(["doc", "--package", crate_name, "--no-deps"])
+/// This function executes `cargo doc --package <crate> --no-deps` with the
+/// specified feature flags, then validates that the output directory exists.
+pub fn doc(
+    crate_name: &str,
+    target_dir: &str,
+    features: &[&str],
+    use_default_features: bool,
+) -> error::Result<()> {
+    let mut cmd = std::process::Command::new("cargo");
+    cmd.args(["doc", "--package", crate_name, "--no-deps"]);
+
+    if !use_default_features {
+        cmd.arg("--no-default-features");
+    }
+
+    if !features.is_empty() {
+        cmd.arg("--features").arg(features.join(","));
+    }
+
+    let output = cmd
         .output()
         .map_err(|e| error::BuildError::CargoDocExecFailed {
             crate_name: crate_name.to_string(),
@@ -103,7 +130,7 @@ mod tests {
 
     #[test]
     fn doc_returns_error_for_invalid_crate() {
-        let result = doc("nonexistent_crate_12345_xyz", "target");
+        let result = doc("nonexistent_crate_12345_xyz", "target", &[], true);
         assert!(result.is_err());
     }
 
@@ -117,7 +144,12 @@ mod tests {
         // Since we can't easily simulate a successful cargo doc execution
         // without actually generating docs, we test the error path with
         // a non-existent crate which will fail early.
-        let result = doc("this_package_does_not_exist_anywhere_12345", "target");
+        let result = doc(
+            "this_package_does_not_exist_anywhere_12345",
+            "target",
+            &[],
+            true,
+        );
         assert!(result.is_err());
     }
 }
