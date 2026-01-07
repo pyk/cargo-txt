@@ -378,6 +378,67 @@ fn main() -> error::Result<()> {
 }
 ```
 
+### Debug Trait Hack for User-Friendly Error Output
+
+By default, when `main()` returns an error, Rust's standard library prints the
+error using the `Debug` format, which produces ugly output like:
+
+```
+Error: Build(InvalidCrateName { requested: "foo", available: ["bar", "baz"] })
+```
+
+To display user-friendly error messages instead of Debug output, implement a
+custom `Debug` trait that delegates to the `Display` implementation. This allows
+`main()` to remain simple while forcing the standard library to print your
+custom message.
+
+```rust
+// Remove #[derive(Debug)] from error types
+pub enum BuildError {
+    // ... variants
+}
+
+// Implement Display for human-readable message
+impl fmt::Display for BuildError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            BuildError::InvalidCrateName { requested, available } => {
+                write!(
+                    f,
+                    "Crate '{}' is not installed.\n\nAvailable: {}",
+                    requested,
+                    available.join(", ")
+                )
+            }
+            // ... other variants
+        }
+    }
+}
+
+// **THE TRICK**: Override Debug to delegate to Display
+impl fmt::Debug for BuildError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
+```
+
+Apply this pattern to all error types in the hierarchy (`Error`, `BuildError`,
+`HtmlExtractError`, etc.). The result is clean, user-friendly output:
+
+```
+Error: Crate 'foo' is not installed.
+
+Available: bar, baz
+```
+
+**Benefits:**
+
+- Clean `fn main() -> Result<(), Error>` signature
+- User-friendly error messages without manual error printing
+- No ugly Debug output with struct field names
+- Consistent error display across all error types
+
 ### Error Usage Guidelines
 
 - Use `error::Result<T>` (not `std::result::Result<T, Error>`) throughout the

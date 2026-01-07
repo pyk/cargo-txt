@@ -30,8 +30,9 @@ cargo docmd build <CRATE>
 
 #### Output Location
 
-Markdown files are placed in `$CARGO_TARGET_DIR/docmd`. If `CARGO_TARGET_DIR` is
-not set, the default is `./target/docmd`.
+Markdown files are placed in the target directory's `docmd` subdirectory. The
+target directory is determined by cargo metadata and typically resolves to
+`./target/docmd`.
 
 #### Examples
 
@@ -43,11 +44,31 @@ cargo docmd build serde
 
 #### What It Does
 
-1. Runs `cargo doc --package <crate> --no-deps` to generate HTML
-2. Parses type alias HTML files from the generated documentation
-3. Creates the output directory if needed
-4. Generates markdown files for type aliases only
-5. Logs a summary of generated files
+1. Runs `cargo metadata --no-deps --format-version 1` to get project information
+2. Validates that the requested crate is an installed dependency
+3. Runs `cargo doc --package <crate> --no-deps` to generate HTML
+4. Parses type alias HTML files from the generated documentation
+5. Creates the output directory if needed
+6. Generates markdown files for type aliases only
+7. Logs a summary of generated files
+
+#### Crate Validation
+
+The build command validates that the requested crate is an installed dependency
+in your project. Only crates listed in your `Cargo.toml` (including regular,
+dev, and build dependencies) can be built. You cannot build documentation for
+arbitrary crates from crates.io.
+
+If you request a crate that is not installed, you will see an error message
+listing all available crates:
+
+```
+Error: Crate 'random-crate' is not an installed dependency.
+
+Available crates: clap, rustdoc-types, serde, serde_json, tempfile
+
+Only installed dependencies can be built. Add the crate to Cargo.toml as a dependency first.
+```
 
 #### Limitations
 
@@ -280,7 +301,9 @@ The error structure follows a clear separation of concerns:
 ```
 Error (top-level application error)
 └── BuildError (build process errors)
-    ├── CargoExecutionFailed
+    ├── CargoDocExecFailed
+    ├── CargoMetadataExecFailed
+    ├── InvalidCrateName
     ├── OutputDirCreationFailed
     ├── HtmlParseFailed (may wrap HtmlExtractError)
     │   └── HtmlExtractError (low-level HTML parsing)
@@ -360,8 +383,37 @@ correct conversion path.
 If cargo doc fails (e.g., crate not found), you will see:
 
 ```
-Error: Build(CargoExecutionFailed { crate_name: "crate_name", output: "<command output>" })
+Error: Failed to execute cargo doc for crate 'crate_name':
+
+error: package ID specification `crate_name` did not match any packages
 ```
+
+#### Failed Cargo Metadata Execution
+
+If the `cargo metadata` command fails (e.g., invalid Cargo.toml), you will see:
+
+```
+Error: Failed to execute cargo metadata command:
+
+error: failed to parse manifest at `/path/to/Cargo.toml`
+
+This may indicate an issue with your cargo installation or Cargo.toml file.
+```
+
+#### Invalid Crate Name
+
+If you request a crate that is not an installed dependency, you will see:
+
+```
+Error: Crate 'random-crate' is not an installed dependency.
+
+Available crates: clap, rustdoc-types, serde, serde_json, tempfile
+
+Only installed dependencies can be built. Add the crate to Cargo.toml as a dependency first.
+```
+
+This error lists all available crates to help you identify the correct crate
+name.
 
 #### Documentation Not Generated
 

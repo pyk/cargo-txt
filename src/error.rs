@@ -17,7 +17,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// This enum wraps specific error types for different operations,
 /// allowing for targeted error handling while maintaining a common
 /// error type for the application.
-#[derive(Debug)]
 pub enum Error {
     /// Errors that occur during the build process
     Build(BuildError),
@@ -32,6 +31,12 @@ impl fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
+
+impl fmt::Debug for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
 
 impl From<BuildError> for Error {
     fn from(err: BuildError) -> Self {
@@ -60,7 +65,6 @@ impl From<std::io::Error> for Error {
 /// such as selector parsing failures or missing elements. These errors do
 /// not contain file paths - paths are added by the caller when wrapping
 /// these errors in BuildError::HtmlParseFailed.
-#[derive(Debug)]
 pub enum HtmlExtractError {
     /// CSS selector failed to parse
     SelectorParseFailed { selector: String, error: String },
@@ -83,14 +87,26 @@ impl fmt::Display for HtmlExtractError {
 
 impl std::error::Error for HtmlExtractError {}
 
+impl fmt::Debug for HtmlExtractError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
+
 /// Errors that occur during the build process.
 ///
 /// These errors cover all build operations including cargo command execution,
 /// HTML parsing, markdown generation, and file system operations.
-#[derive(Debug)]
 pub enum BuildError {
     /// Cargo command execution failed
-    CargoExecutionFailed { crate_name: String, output: String },
+    CargoDocExecFailed { crate_name: String, output: String },
+    /// Failed to execute cargo metadata command
+    CargoMetadataExecFailed { output: String },
+    /// Requested crate name is not an installed dependency
+    InvalidCrateName {
+        requested: String,
+        available: Vec<String>,
+    },
     /// Failed to create output directory
     OutputDirCreationFailed { path: PathBuf, error: String },
     /// HTML parsing failed
@@ -110,11 +126,25 @@ pub enum BuildError {
 impl fmt::Display for BuildError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BuildError::CargoExecutionFailed { crate_name, output } => {
+            BuildError::CargoDocExecFailed { crate_name, output } => {
                 write!(
                     f,
                     "Failed to execute cargo doc for crate '{}':\n{}",
                     crate_name, output
+                )
+            }
+            BuildError::CargoMetadataExecFailed { output } => {
+                write!(f, "Failed to execute cargo metadata command:\n{}", output)
+            }
+            BuildError::InvalidCrateName {
+                requested,
+                available,
+            } => {
+                write!(
+                    f,
+                    "Crate '{}' is not an installed dependency.\n\nAvailable crates: {}\n\nOnly installed dependencies can be built. Add the crate to Cargo.toml as a dependency first.",
+                    requested,
+                    available.join(", ")
                 )
             }
             BuildError::OutputDirCreationFailed { path, error } => {
@@ -162,6 +192,12 @@ impl std::error::Error for BuildError {
             BuildError::HtmlParseFailed { source, .. } => Some(source.as_ref()),
             _ => None,
         }
+    }
+}
+
+impl fmt::Debug for BuildError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }
 

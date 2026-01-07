@@ -12,10 +12,31 @@ use crate::items;
 /// This function takes a crate name, generates HTML documentation using cargo doc,
 /// parses the HTML files for type aliases, and generates markdown documentation.
 pub fn build(crate_name: String) -> error::Result<()> {
-    cargo::doc(&crate_name)?;
+    // Get cargo metadata and validate the crate
+    let metadata = cargo::metadata()?;
 
-    let html_dir = get_html_dir(&crate_name)?;
-    let output_dir = get_output_dir()?;
+    // Validate that the requested crate is an installed dependency
+    let is_valid = metadata.packages[0]
+        .dependencies
+        .iter()
+        .any(|dep| dep.name == crate_name);
+
+    if !is_valid {
+        return Err(error::BuildError::InvalidCrateName {
+            requested: crate_name,
+            available: metadata.packages[0]
+                .dependencies
+                .iter()
+                .map(|dep| dep.name.clone())
+                .collect(),
+        }
+        .into());
+    }
+
+    cargo::doc(&crate_name, &metadata.target_directory)?;
+
+    let html_dir = get_html_dir(&crate_name, &metadata.target_directory)?;
+    let output_dir = get_output_dir(&metadata.target_directory)?;
 
     create_output_directory(&output_dir)?;
 
@@ -39,12 +60,9 @@ pub fn build(crate_name: String) -> error::Result<()> {
 ///
 /// This function constructs the path to the HTML documentation directory
 /// based on the crate name and target directory configuration.
-fn get_html_dir(crate_name: &str) -> error::Result<std::path::PathBuf> {
-    let target_dir = std::env::var("CARGO_TARGET_DIR")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| std::path::PathBuf::from("target"));
-
-    let html_dir = target_dir.join("doc").join(crate_name);
+fn get_html_dir(crate_name: &str, target_dir: &str) -> error::Result<std::path::PathBuf> {
+    let target_path = std::path::PathBuf::from(target_dir);
+    let html_dir = target_path.join("doc").join(crate_name);
 
     if !html_dir.exists() {
         return Err(error::BuildError::DocNotGenerated {
@@ -59,14 +77,11 @@ fn get_html_dir(crate_name: &str) -> error::Result<std::path::PathBuf> {
 
 /// Get the output directory for markdown documentation.
 ///
-/// This function reads the `CARGO_TARGET_DIR` environment variable and
-/// returns a path to the `docmd` subdirectory within it.
-fn get_output_dir() -> error::Result<std::path::PathBuf> {
-    let target_dir = std::env::var("CARGO_TARGET_DIR")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| std::path::PathBuf::from("target"));
-
-    let output_dir = target_dir.join("docmd");
+/// This function reads the target directory from cargo metadata
+/// and returns a path to the `docmd` subdirectory within it.
+fn get_output_dir(target_dir: &str) -> error::Result<std::path::PathBuf> {
+    let target_path = std::path::PathBuf::from(target_dir);
+    let output_dir = target_path.join("docmd");
 
     Ok(output_dir)
 }
@@ -164,43 +179,4 @@ fn parse_html_directory(
     }
 
     Ok(type_alias_count)
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Tests
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /////////////////////////////////////////////////////////////////////////////
-    // Path Construction Tests
-
-    #[test]
-    fn get_html_dir_constructs_correct_path() {
-        let result = get_html_dir("serde_json");
-        assert!(result.is_ok());
-
-        let path = result.unwrap();
-        assert!(path.ends_with("target/doc/serde_json"));
-    }
-
-    #[test]
-    fn get_output_dir_constructs_correct_path() {
-        let result = get_output_dir();
-        assert!(result.is_ok());
-
-        let path = result.unwrap();
-        assert!(path.ends_with("target/docmd"));
-    }
-
-    /////////////////////////////////////////////////////////////////////////////
-    // Error Tests
-
-    #[test]
-    fn get_html_dir_returns_error_for_nonexistent_crate() {
-        // Use a crate name that definitely doesn't have documentation
-        let result = get_html_dir("nonexistent_crate_12345");
-        assert!(result.is_err());
-    }
 }

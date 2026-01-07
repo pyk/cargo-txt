@@ -54,13 +54,27 @@ Arguments:
 - `<CRATE>` - Crate name to build documentation for (required)
 
 This command generates HTML documentation using `cargo doc` and parses it to
-create markdown files. Output is placed in `$CARGO_TARGET_DIR/docmd` (defaults
-to `./target/docmd`).
+create markdown files. Output is placed in the target directory's `docmd`
+subdirectory (determined by cargo metadata, typically `./target/docmd`).
+
+**Note**: Only installed dependencies listed in your `Cargo.toml` can be built.
+You cannot build documentation for arbitrary crates from crates.io.
 
 Example:
 
 ```shell
 cargo docmd build serde
+```
+
+Error example:
+
+```shell
+$ cargo docmd build random-crate
+Error: Crate 'random-crate' is not an installed dependency.
+
+Available crates: clap, rustdoc-types, serde, serde_json, tempfile
+
+Only installed dependencies can be built. Add the crate to Cargo.toml as a dependency first.
 ```
 
 ### Browse Command
