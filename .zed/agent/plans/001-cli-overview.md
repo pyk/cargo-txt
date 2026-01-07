@@ -1,3 +1,12 @@
+---
+type: normal
+title: "CLI Skeleton Implementation"
+seq: 001
+slug: "cli-overview"
+created: "2026-01-07T04:33:00Z"
+status: completed
+---
+
 # CLI Skeleton Implementation
 
 Implement the foundational command-line interface structure for `cargo-docmd`,
@@ -33,6 +42,10 @@ Issues:
 4. Set up the basic CLI flow with command modules in dedicated directory
 
 ## Analysis Required
+
+### Dependency Investigation
+
+- [ ] Check `clap` dependency in `Cargo.toml`
 
 ### Code Locations to Check
 
