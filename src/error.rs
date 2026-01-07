@@ -219,20 +219,3 @@ impl BuildError {
         }
     }
 }
-
-/// Wrap a result with a path error context.
-///
-/// This helper function wraps any error into BuildError::HtmlParseFailed,
-/// adding the file path information for better error reporting.
-pub fn wrap_with_path<T, E>(result: std::result::Result<T, E>, path: &Path) -> Result<T>
-where
-    E: std::error::Error + Send + Sync + 'static,
-{
-    result.map_err(|error| {
-        BuildError::HtmlParseFailed {
-            path: path.to_path_buf(),
-            source: Box::new(error),
-        }
-        .into()
-    })
-}

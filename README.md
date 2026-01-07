@@ -8,7 +8,7 @@ capabilities.
 
 ## Features
 
-- Generate markdown from rustdoc HTML
+- Generate markdown from rustdoc HTML by extracting the `<main>` element
 - Documentation browsing at crate and item level
 
 ## Installation
@@ -53,9 +53,11 @@ Arguments:
 
 - `<CRATE>` - Crate name to build documentation for (required)
 
-This command generates HTML documentation using `cargo doc` and parses it to
-create markdown files. Output is placed in the target directory's `docmd`
-subdirectory (determined by cargo metadata, typically `./target/docmd`).
+This command generates HTML documentation using `cargo doc`, extracts the
+`<main>` element from `index.html`, converts it to markdown, and writes it to
+the output directory. Output is placed in the target directory's `docmd`
+subdirectory (determined by cargo metadata, typically
+`./target/docmd/<crate>/index.md`).
 
 **Note**: Only installed dependencies listed in your `Cargo.toml` can be built.
 You cannot build documentation for arbitrary crates from crates.io.
@@ -64,6 +66,12 @@ Example:
 
 ```shell
 cargo docmd build serde
+```
+
+Output:
+
+```shell
+Generated markdown: /path/to/project/target/docmd/serde/index.md
 ```
 
 Error example:
@@ -124,10 +132,11 @@ cargo docmd browse serde --item Serialize
 
 ## Current Status
 
-- **Build command**: Fully implemented for type aliases. Generates HTML
-  documentation using stable `cargo doc`, parses type alias HTML files, and
-  creates markdown output following the specified format. Other item types
-  (structs, enums, unions) will be added in future phases.
+- **Build command**: Fully implemented. Generates HTML documentation using
+  stable `cargo doc`, extracts the `<main>` element from `index.html`, converts
+  it to markdown using the `scraper` crate, and writes a single `index.md` file
+  to `target/docmd/<crate>/`. The conversion handles headings, paragraphs, code
+  blocks, links, lists, and other common HTML elements.
 - **Browse command**: Placeholder implementation. Accepts crate name and item
   parameters but does not display documentation yet.
 

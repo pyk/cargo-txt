@@ -10,7 +10,13 @@ use crate::error;
 ///
 /// This function displays documentation for the specified crate. If an item is
 /// provided, only that specific item's documentation is shown.
-pub fn browse(crate_name: String, item: Option<String>) -> error::Result<()> {
+pub fn browse(crate_name: String, item: Option<String>, debug: bool) -> error::Result<()> {
+    if debug {
+        eprintln!(
+            "DEBUG: Browse command: crate={}, item={:?}",
+            crate_name, item
+        );
+    }
     println!("Browse command: crate={}, item={:?}", crate_name, item);
     println!("Not yet implemented");
     Ok(())

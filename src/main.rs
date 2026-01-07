@@ -6,7 +6,7 @@
 mod cargo;
 mod commands;
 mod error;
-mod items;
+mod html2md;
 
 use clap::{Parser, Subcommand};
 use commands::{browse, build};
@@ -18,6 +18,10 @@ use commands::{browse, build};
 #[command(version = "0.1.0")]
 #[command(about = "A cargo doc for coding agents", long_about = None)]
 struct Args {
+    /// Enable debug output
+    #[arg(short, long)]
+    debug: bool,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -47,8 +51,8 @@ fn main() -> error::Result<()> {
     let args = Args::parse();
 
     match args.command {
-        Command::Build { crate_name } => build(crate_name)?,
-        Command::Browse { crate_name, item } => browse(crate_name, item)?,
+        Command::Build { crate_name } => build(crate_name, args.debug)?,
+        Command::Browse { crate_name, item } => browse(crate_name, item, args.debug)?,
     }
 
     Ok(())

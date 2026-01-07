@@ -26,18 +26,6 @@ pub struct Package {
 pub struct Dependency {
     /// Name of the dependency crate
     pub name: String,
-
-    /// Features enabled for this dependency
-    pub features: Vec<String>,
-
-    /// Whether default features are enabled
-    #[serde(default = "default_true")]
-    pub uses_default_features: bool,
-}
-
-/// Default value for uses_default_features.
-fn default_true() -> bool {
-    true
 }
 
 /// Get cargo metadata for the current project.
@@ -66,25 +54,49 @@ pub fn metadata() -> error::Result<Metadata> {
     Ok(metadata)
 }
 
+/// Parse cargo doc output to extract the generated HTML directory path.
+///
+/// This function parses the stdout from `cargo doc` to find the line
+/// starting with "Generated " and extracts the directory path from
+/// "Generated /path/to/crate/index.html".
+///
+/// Returns the parent directory of the generated index.html file.
+pub fn parse_generated_output(stdout: &str) -> error::Result<std::path::PathBuf> {
+    let generated_line = stdout
+        .lines()
+        .map(|line| line.trim())
+        .find(|line| line.starts_with("Generated "))
+        .and_then(|line| line.strip_prefix("Generated "))
+        .map(|s| s.trim())
+        .ok_or_else(|| error::BuildError::DocNotGenerated {
+            crate_name: "<unknown>".to_string(),
+            expected_path: std::path::PathBuf::new(),
+        })?;
+
+    let html_path = std::path::PathBuf::from(generated_line);
+    Ok(html_path
+        .parent()
+        .ok_or_else(|| error::BuildError::DocNotGenerated {
+            crate_name: "<unknown>".to_string(),
+            expected_path: html_path.clone(),
+        })?
+        .to_path_buf())
+}
+
 /// Generate HTML documentation for a specific crate.
 ///
-/// This function executes `cargo doc --package <crate> --no-deps` with the
-/// specified feature flags, then validates that the output directory exists.
-pub fn doc(
-    crate_name: &str,
-    target_dir: &str,
-    features: &[&str],
-    use_default_features: bool,
-) -> error::Result<()> {
+/// This function executes `cargo doc --package <crate> --no-deps`,
+/// parses the output to find the generated directory, and returns the path
+/// to the HTML documentation directory.
+pub fn doc(crate_name: &str, debug: bool) -> error::Result<std::path::PathBuf> {
     let mut cmd = std::process::Command::new("cargo");
     cmd.args(["doc", "--package", crate_name, "--no-deps"]);
 
-    if !use_default_features {
-        cmd.arg("--no-default-features");
-    }
-
-    if !features.is_empty() {
-        cmd.arg("--features").arg(features.join(","));
+    if debug {
+        eprintln!(
+            "DEBUG: Executing: cargo doc --package {} --no-deps",
+            crate_name
+        );
     }
 
     let output = cmd
@@ -94,8 +106,17 @@ pub fn doc(
             output: e.to_string(),
         })?;
 
+    if debug {
+        eprintln!("DEBUG: Exit code: {}", output.status);
+        eprintln!("DEBUG: stdout len: {}", output.stdout.len());
+        eprintln!("DEBUG: stderr len: {}", output.stderr.len());
+    }
+
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        if debug {
+            eprintln!("DEBUG: stderr: {}", stderr);
+        }
         return Err(error::BuildError::CargoDocExecFailed {
             crate_name: crate_name.to_string(),
             output: stderr,
@@ -103,19 +124,12 @@ pub fn doc(
         .into());
     }
 
-    let doc_dir = std::path::PathBuf::from(target_dir)
-        .join("doc")
-        .join(crate_name);
-
-    if !doc_dir.exists() {
-        return Err(error::BuildError::DocNotGenerated {
-            crate_name: crate_name.to_string(),
-            expected_path: doc_dir,
-        }
-        .into());
+    // Parse stderr to find generated directory path (cargo doc writes to stderr)
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if debug {
+        eprintln!("DEBUG: stderr: {:?}", stderr);
     }
-
-    Ok(())
+    parse_generated_output(&stderr)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -126,11 +140,54 @@ mod tests {
     use super::*;
 
     /////////////////////////////////////////////////////////////////////////////
+    // Output Parsing Tests
+
+    #[test]
+    fn parse_generated_output_extracts_directory_path() {
+        let stdout = "  Documenting serde v1.0.193 (/path/to/serde)\n   Generated /home/user/project/target/doc/serde/index.html\n";
+        let result = parse_generated_output(stdout);
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert_eq!(
+            path,
+            std::path::PathBuf::from("/home/user/project/target/doc/serde")
+        );
+    }
+
+    #[test]
+    fn parse_generated_output_handles_hyphens_to_underscores() {
+        let stdout = "  Documenting rustdoc-types v0.57.0\n   Generated /home/user/project/target/doc/rustdoc_types/index.html\n";
+        let result = parse_generated_output(stdout);
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert_eq!(
+            path,
+            std::path::PathBuf::from("/home/user/project/target/doc/rustdoc_types")
+        );
+    }
+
+    #[test]
+    fn parse_generated_output_returns_error_without_generated_line() {
+        let stdout = "  Documenting serde v1.0.193\n  some other output\n";
+        let result = parse_generated_output(stdout);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_generated_output_handles_multiple_lines() {
+        let stdout = "line 1\nline 2\n   Generated /path/to/doc/index.html\nline 4\n";
+        let result = parse_generated_output(stdout);
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert_eq!(path, std::path::PathBuf::from("/path/to/doc"));
+    }
+
+    /////////////////////////////////////////////////////////////////////////////
     // Execution Tests
 
     #[test]
     fn doc_returns_error_for_invalid_crate() {
-        let result = doc("nonexistent_crate_12345_xyz", "target", &[], true);
+        let result = doc("nonexistent_crate_12345_xyz", false);
         assert!(result.is_err());
     }
 
@@ -144,12 +201,7 @@ mod tests {
         // Since we can't easily simulate a successful cargo doc execution
         // without actually generating docs, we test the error path with
         // a non-existent crate which will fail early.
-        let result = doc(
-            "this_package_does_not_exist_anywhere_12345",
-            "target",
-            &[],
-            true,
-        );
+        let result = doc("this_package_does_not_exist_anywhere_12345", false);
         assert!(result.is_err());
     }
 }

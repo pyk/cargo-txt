@@ -1,26 +1,6 @@
-# CLI Reference
-
-This document provides detailed reference information for all cargo-docmd
-command-line interface commands and options.
-
-## Overview
-
-cargo docmd converts rustdoc HTML output into markdown documentation optimized
-for coding agents. The tool provides two primary modes of operation: build
-markdown files or browse documentation.
-
-The build command automatically generates rustdoc HTML using stable cargo doc
-and creates markdown files in `$CARGO_TARGET_DIR/docmd`.
-
-## Commands
-
-### build
-
-Generate rustdoc HTML and create markdown documentation from it.
-
-```shell
 cargo docmd build <CRATE>
-```
+
+````
 
 #### Arguments
 
@@ -32,7 +12,7 @@ cargo docmd build <CRATE>
 
 Markdown files are placed in the target directory's `docmd` subdirectory. The
 target directory is determined by cargo metadata and typically resolves to
-`./target/docmd`.
+`./target/docmd/<crate>/index.md`.
 
 #### Examples
 
@@ -40,6 +20,12 @@ Build documentation for serde crate:
 
 ```shell
 cargo docmd build serde
+````
+
+Output:
+
+```shell
+Generated markdown: /path/to/project/target/docmd/serde/index.md
 ```
 
 #### What It Does
@@ -48,10 +34,13 @@ cargo docmd build serde
 2. Validates that the requested crate is an installed dependency
 3. Runs `cargo doc --package <crate> --no-deps` with the dependency's feature
    configuration to generate HTML
-4. Parses type alias HTML files from the generated documentation
-5. Creates the output directory if needed
-6. Generates markdown files for type aliases only
-7. Logs a summary of generated files
+4. Parses the cargo doc output to extract the generated directory path from the
+   "Generated /path/to/crate/index.html" line
+5. Reads the `index.html` file from that directory
+6. Extracts the `<main>` element from the HTML
+7. Converts HTML to markdown using the `scraper` crate
+8. Creates the output directory `target/docmd/<crate>/` if needed
+9. Writes the markdown content to `target/docmd/<crate>/index.md`
 
 #### Feature Detection
 
@@ -83,10 +72,28 @@ Available crates: clap, rustdoc-types, serde, serde_json, tempfile
 Only installed dependencies can be built. Add the crate to Cargo.toml as a dependency first.
 ```
 
-#### Limitations
+#### HTML to Markdown Conversion
 
-The build command currently generates markdown for type aliases only. Other item
-types (structs, enums, unions) will be added in future phases.
+The build command uses a simplified approach to convert rustdoc HTML to
+markdown:
+
+1. **HTML Extraction**: Uses the `scraper` crate to parse HTML and extract the
+   `<main>` element using CSS selectors
+2. **Element Conversion**: Converts HTML elements to markdown equivalents:
+    - `<h1>`-`<h6>` → `#` to `######` headings
+    - `<p>` → paragraph text with newline
+    - `<code>` → inline code with backticks
+    - `<pre><code>` → code blocks with triple backticks
+    - `<a>` → markdown links `[text](url)`
+    - `<ul>`/`<ol>` → bullet/numbered lists
+    - `<li>` → list items with proper indentation
+    - `<strong>`/`<b>` → **bold** text
+    - `<em>`/`<i>` → _italic_ text
+    - `<blockquote>` → quoted text with `>`
+3. **Recursive Processing**: Handles nested HTML elements appropriately
+
+This approach avoids the complexity of item-specific parsing and provides
+readable markdown for all rustdoc content.
 
 ### browse
 
@@ -130,159 +137,51 @@ iterations.
 
 ## Markdown Output Format
 
-The markdown framework generates documentation files optimized for coding
-agents. All files follow a consistent structure and naming convention.
+The markdown framework generates a single index.md file containing the entire
+crate documentation extracted from the `<main>` element of rustdoc HTML.
 
-### File Naming Convention
+### Output Structure
 
-Markdown files use a deterministic naming scheme:
+The generated markdown file follows this structure:
 
-- Replace `::` with `-` throughout the item path
-- Remove generic parameters (e.g., `HashMap<K, V>` becomes `HashMap`)
-- Add `.md` extension
-
-Examples:
-
-- `std::vec::Vec` → `std-vec-Vec.md`
-- `std::collections::HashMap<K, V>` → `std-collections-HashMap.md`
-- `serde::Serialize::serialize` → `serde-Serialize-serialize.md`
-
-### Index Page
-
-The `index.md` file serves as a navigation hub and contains:
-
-- Crate name and documentation
-- Item counts grouped by type
-- Links to all public items
-- "Next Actions" section for common operations
-
-### Standard Markdown Structure
-
-All generated markdown files follow this structure:
-
-```markdown
-# Item Name
-
-Item documentation text from rustdoc.
-
-## Type-Specific Sections
-
-Fields, variants, or type details depending on the item type.
-
-## Next Actions
-
-- View source code: `cargo docmd browse --item <id>`
-- Find related items: `cargo docmd browse --type <type>`
+```
+target/
+└── docmd/
+    └── <crate>/
+        └── index.md
 ```
 
-### Generated Item Types
+For example, building documentation for `serde` produces:
 
-#### Structs
-
-Structs generate documentation with a **Fields** section listing all struct
-fields with their types and visibility markers.
-
-Example generated struct:
-
-```markdown
-# Point
-
-A 2D point in Cartesian coordinates.
-
-## Fields
-
-- `x: f64` (pub) - X coordinate
-- `y: f64` (pub) - Y coordinate
-
-## Next Actions
-
-- View source: `cargo docmd browse --item 0:3:4`
-- Find related structs: `cargo docmd browse --type struct`
+```
+target/
+└── docmd/
+    └── serde/
+        └── index.md
 ```
 
-#### Enums
+### Content Format
 
-Enums generate documentation with a **Variants** section listing all enum
-variants, their associated data types, and explicit discriminants.
+The markdown file contains all content from the `<main>` element of the rustdoc
+HTML, converted to markdown format. This includes:
 
-Example generated enum:
+- Crate-level documentation
+- Module documentation
+- Item documentation (structs, enums, traits, functions, etc.)
+- Code examples
+- Type signatures
+- Links to related items
 
-```markdown
-# Option
-
-A type representing a value that may or may not exist.
-
-## Variants
-
-- `Some(T)` - Some value of type `T`
-- `None` - No value
-
-## Next Actions
-
-- View source: `cargo docmd browse --item 0:3:5`
-- Find related enums: `cargo docmd browse --type enum`
-```
-
-#### Unions
-
-Unions generate documentation with a **Safety** warning section and a **Fields**
-section. The safety note reminds users about unsafe access requirements.
-
-Example generated union:
-
-```markdown
-# Any
-
-A dynamically-typed value.
-
-## Safety
-
-**Important**: Accessing union fields requires unsafe code. Only access the
-field that was most recently written to. Reading from a different field results
-in undefined behavior.
-
-## Fields
-
-- `integer: i64` (pub)
-- `float: f64` (pub)
-- `text: *const u8` (pub)
-
-## Next Actions
-
-- View source: `cargo docmd browse --item 0:3:6`
-- Find related unions: `cargo docmd browse --type union`
-```
-
-#### Type Aliases
-
-Type aliases generate documentation with a **Type** section showing the target
-type in a code block for clarity.
-
-Example generated type alias:
-
-````markdown
-# Result
-
-Result type alias for convenience.
-
-## Type
-
-```rust
-type Result<T> = std::result::Result<T, Error>;
-```
-
-## Next Actions
-
-- View source: `cargo docmd browse --item 0:3:7`
-- Find related aliases: `cargo docmd browse --type type-alias`
-````
+The content is rendered in a format optimized for reading by coding agents,
+preserving the structure and hierarchy of the original documentation.
 
 ## Current Limitations
 
 This section documents current limitations of cargo docmd as of version 0.1.0.
 
-- **Build command**: Generates markdown for type aliases only. Other item types
-  (structs, enums, unions) will be added in future phases.
+- **Build command**: Generates a single markdown file containing all
+  documentation from the `<main>` element. The conversion handles common HTML
+  elements but may not cover all edge cases in rustdoc HTML.
 - **Browse command**: Accepts crate name and optional item parameter but does
   not display documentation yet.
 
@@ -299,8 +198,6 @@ defines a clear error hierarchy:
 - `Error` - Top-level error enum wrapping all specific error types
     - `BuildError` - Errors during the build process (cargo execution, HTML
       parsing, markdown generation, etc.)
-        - May have `HtmlExtractError` as its source via
-          `BuildError::HtmlParseFailed`
 - `HtmlExtractError` - Low-level HTML parsing errors (selector failures, missing
   elements)
 
@@ -354,27 +251,14 @@ Here's how errors propagate through the hierarchy in a typical HTML parsing
 operation:
 
 ```rust
-// In src/items/type_alias.rs
-pub fn from_str(html_str: &str) -> error::Result<Self> {
-    let name = extract_name(&document)?;  // Returns error::Result<String>
-    // ...
-}
-
-fn extract_name(document: &Html) -> error::Result<String> {
-    let selector = Selector::parse("h1 .type")?;  // HtmlExtractError converted to Error
+// In src/html2md.rs
+pub fn convert(html: &str) -> error::Result<String> {
+    let selector = Selector::parse("main")?;  // HtmlExtractError converted to Error
     // ...
 }
 
 // In src/commands/build.rs
-let type_alias = error::wrap_with_path(
-    items::type_alias::TypeAlias::from_str(&html_content),
-    path.clone(),  // Path context added here
-)?;
-
-// Error chain displayed to user:
-// Error: Build(HtmlParseFailed { path: "path/to/type.html", source: ... })
-// Caused by:
-//   Element not found with selector 'h1 .type'
+let markdown_content = html2md::convert(&html_content)?;
 ```
 
 #### Error Conversion Chain
@@ -442,15 +326,15 @@ If HTML parsing fails, you will see the error with its full chain, demonstrating
 the error hierarchy:
 
 ```
-Error: Build(HtmlParseFailed { path: "path/to/type.html", source: ElementNotFound { selector: "h1 .type" } })
+Error: Build(HtmlParseFailed { path: "path/to/index.html", source: ElementNotFound { selector: "main" } })
 Caused by:
-  Element not found with selector 'h1 .type'
+  Element not found with selector 'main'
 ```
 
 For markdown write errors:
 
 ```
-Error: Build(MarkdownWriteFailed { path: "path/to/Type.md", error: "Permission denied" })
+Error: Build(MarkdownWriteFailed { path: "path/to/docmd/serde/index.md", error: "Permission denied" })
 ```
 
 The error shows:
@@ -473,7 +357,6 @@ concerns.
 
 Planned features for future versions:
 
-- Individual item markdown generation for all 21 rustdoc item types
 - Interactive terminal-based documentation browser
 - Configuration file support
 - Custom output formatting options
