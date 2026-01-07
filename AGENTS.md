@@ -21,6 +21,8 @@ When implementing a plan:
     - `writing-rust.md` for Rust files
     - `writing-readme.md` for README.md
     - `writing-docs.md` for DOCS.md
+    - **CRITICAL**: All files in `.zed/agent/guidelines/` should read complete
+      full content, not just the outline.
 6. Do not use git restore commands (can cause data loss).
 7. Use `cargo test` to run tests and `rust-check` after changes.
 8. Review and update the plan checklist after implementation.
@@ -42,6 +44,8 @@ When reviewing staged changes:
       `.zed/agent/guidelines/writing-readme.md`.
     - Rust files must strictly follow the guideline defined in
       `.zed/agent/guidelines/writing-rust.md`.
+    - **CRITICAL**: All files in `.zed/agent/guidelines/` should read complete
+      full content, not just the outline.
 
 # Git Commit Mode
 
