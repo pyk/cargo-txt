@@ -21,6 +21,23 @@ When implementing a plan:
     - `writing-rust.md` for Rust files
     - `writing-readme.md` for README.md
     - `writing-docs.md` for DOCS.md
-6. Do not use git commands (can cause data loss).
+6. Do not use git restore commands (can cause data loss).
 7. Use `cargo test` to run tests and `rust-check` after changes.
 8. Review and update the plan checklist after implementation.
+9. Review the edited files:
+    - DOCS.md must strictly follow the guideline defined in
+      `.zed/agent/guidelines/writing-docs.md`.
+    - README.md must strictly follow the guideline defined in
+      `.zed/agent/guidelines/writing-readme.md`.
+    - Rust files must strictly follow the guideline defined in
+      `.zed/agent/guidelines/writing-rust.md`.
+
+# Git Commit Mode
+
+When writing Git Commit message:
+
+1. Review `README.md` to understand the project.
+2. Review `DOCS.md` (if exists) to understand the current implementation.
+3. Use the thinking tool.
+4. Follow instructions in
+   `.zed/agent/instructions/create-git-commit-message.md`.
