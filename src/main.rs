@@ -1,16 +1,16 @@
 //! cargo-docmd: A cargo doc for coding agents
 //!
-//! This tool converts rustdoc JSON output into markdown documentation designed
+//! This tool converts rustdoc HTML output into markdown documentation designed
 //! for coding agents to browse and understand crate APIs.
 
 mod cargo;
 mod commands;
 mod error;
-mod markdown;
+mod items;
 
 use clap::{Parser, Subcommand};
 use commands::{browse, build};
-use error::Result;
+use std::error::Error;
 
 /// A cargo doc for coding agents
 ///
@@ -38,9 +38,9 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Build markdown documentation from rustdoc JSON
+    /// Build markdown documentation from rustdoc HTML
     ///
-    /// Generates rustdoc JSON using cargo +nightly and parses it to create
+    /// Generates rustdoc HTML using cargo doc and parses it to create
     /// markdown files suitable for coding agents. Output is placed in
     /// `$CARGO_TARGET_DIR/docmd`.
     Build {
@@ -64,17 +64,23 @@ enum Command {
     },
 }
 
-fn main() -> Result<()> {
+fn main() {
     let args = Args::parse();
 
-    match args.command {
-        Command::Build { crate_name } => {
-            build(crate_name)?;
-        }
+    if let Err(error) = match args.command {
+        Command::Build { crate_name } => build(crate_name),
         Command::Browse { crate_name, item } => {
             browse(crate_name, item);
+            Ok(())
         }
+    } {
+        eprintln!("Error: {}", error);
+        let mut source: Option<&(dyn std::error::Error + 'static)> = error.source();
+        while let Some(cause) = source {
+            eprintln!("Caused by:");
+            eprintln!("  {}", cause);
+            source = cause.source();
+        }
+        std::process::exit(1);
     }
-
-    Ok(())
 }

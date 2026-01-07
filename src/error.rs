@@ -6,6 +6,35 @@
 use std::fmt;
 use std::path::PathBuf;
 
+/// Errors that occur during HTML extraction operations.
+///
+/// These errors cover low-level operations when extracting data from HTML,
+/// such as selector parsing failures or missing elements. These errors do
+/// not contain file paths - paths are added by the caller when wrapping
+/// these errors in BuildError::HtmlParseFailed.
+#[derive(Debug)]
+pub enum HtmlExtractError {
+    /// CSS selector failed to parse
+    SelectorParseFailed { selector: String, error: String },
+    /// Required HTML element not found
+    ElementNotFound { selector: String },
+}
+
+impl fmt::Display for HtmlExtractError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HtmlExtractError::SelectorParseFailed { selector, error } => {
+                write!(f, "Failed to parse selector '{}': {}", selector, error)
+            }
+            HtmlExtractError::ElementNotFound { selector } => {
+                write!(f, "Element not found with selector '{}'", selector)
+            }
+        }
+    }
+}
+
+impl std::error::Error for HtmlExtractError {}
+
 /// Top-level error type for cargo-docmd operations.
 ///
 /// This enum wraps specific error types for different operations,
@@ -57,49 +86,36 @@ impl From<std::io::Error> for Error {
     }
 }
 
-/// Errors that occur during the build process.
+/// Errors that occur during HTML extraction operations.
 ///
 /// These errors cover operations such as checking for the nightly toolchain,
 /// executing cargo commands, parsing JSON output, and managing output directories.
 #[derive(Debug)]
 pub enum BuildError {
-    /// Nightly toolchain is not installed
-    NightlyNotInstalled,
     /// Cargo command execution failed
     CargoExecutionFailed { crate_name: String, output: String },
-    /// Expected JSON file was not found
-    JsonNotFound(PathBuf),
-    /// JSON parsing failed
-    JsonParseError { path: PathBuf, error: String },
     /// Failed to create output directory
     OutputDirCreationFailed { path: PathBuf, error: String },
+    /// HTML parsing failed
+    HtmlParseFailed {
+        path: PathBuf,
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
+    /// Documentation was not generated for the crate
+    DocNotGenerated {
+        crate_name: String,
+        expected_path: PathBuf,
+    },
 }
 
 impl fmt::Display for BuildError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BuildError::NightlyNotInstalled => {
-                write!(
-                    f,
-                    "Nightly toolchain is not installed. Install it with: rustup install nightly"
-                )
-            }
             BuildError::CargoExecutionFailed { crate_name, output } => {
                 write!(
                     f,
-                    "Failed to execute cargo rustdoc for crate '{}':\n{}",
+                    "Failed to execute cargo doc for crate '{}':\n{}",
                     crate_name, output
-                )
-            }
-            BuildError::JsonNotFound(path) => {
-                write!(f, "Expected JSON file not found at '{}'", path.display())
-            }
-            BuildError::JsonParseError { path, error } => {
-                write!(
-                    f,
-                    "Failed to parse JSON file '{}': {}",
-                    path.display(),
-                    error
                 )
             }
             BuildError::OutputDirCreationFailed { path, error } => {
@@ -110,24 +126,71 @@ impl fmt::Display for BuildError {
                     error
                 )
             }
+            BuildError::HtmlParseFailed { path, source } => {
+                write!(
+                    f,
+                    "Failed to parse HTML file '{}': {}",
+                    path.display(),
+                    source
+                )
+            }
+            BuildError::DocNotGenerated {
+                crate_name,
+                expected_path,
+            } => {
+                write!(
+                    f,
+                    "Documentation was not generated for crate '{}'. Expected directory at '{}'",
+                    crate_name,
+                    expected_path.display()
+                )
+            }
         }
     }
 }
 
-impl std::error::Error for BuildError {}
+impl std::error::Error for BuildError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            BuildError::HtmlParseFailed { source, .. } => Some(source.as_ref()),
+            _ => None,
+        }
+    }
+}
+
+impl From<HtmlExtractError> for BuildError {
+    fn from(err: HtmlExtractError) -> Self {
+        BuildError::HtmlParseFailed {
+            path: PathBuf::from("<unknown>"),
+            source: Box::new(err),
+        }
+    }
+}
+
+/// Wrap a result with a path error context.
+///
+/// This helper function wraps any error into BuildError::HtmlParseFailed,
+/// adding the file path information for better error reporting.
+pub fn wrap_with_path<T, E>(result: std::result::Result<T, E>, path: PathBuf) -> Result<T>
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    result.map_err(|error| {
+        BuildError::HtmlParseFailed {
+            path,
+            source: Box::new(error),
+        }
+        .into()
+    })
+}
 
 /// Errors that occur during markdown generation.
 ///
-/// These errors cover file and directory operations when creating
-/// markdown documentation files.
+/// These errors cover file operations when creating markdown documentation files.
 #[derive(Debug)]
 pub enum MarkdownError {
     /// Failed to write a markdown file
     FileWriteFailed(PathBuf, String),
-    /// Failed to create a directory
-    DirectoryCreationFailed(PathBuf, String),
-    /// Expected item not found in the index
-    ItemNotFound(String),
 }
 
 impl fmt::Display for MarkdownError {
@@ -135,17 +198,6 @@ impl fmt::Display for MarkdownError {
         match self {
             MarkdownError::FileWriteFailed(path, error) => {
                 write!(f, "Failed to write file '{}': {}", path.display(), error)
-            }
-            MarkdownError::DirectoryCreationFailed(path, error) => {
-                write!(
-                    f,
-                    "Failed to create directory '{}': {}",
-                    path.display(),
-                    error
-                )
-            }
-            MarkdownError::ItemNotFound(id) => {
-                write!(f, "Item '{}' not found in documentation index", id)
             }
         }
     }

@@ -5,18 +5,18 @@ command-line interface commands and options.
 
 ## Overview
 
-cargo docmd converts rustdoc JSON output into markdown documentation optimized
+cargo docmd converts rustdoc HTML output into markdown documentation optimized
 for coding agents. The tool provides two primary modes of operation: build
 markdown files or browse documentation.
 
-The build command automatically generates rustdoc JSON using the nightly
-toolchain and creates markdown files in `$CARGO_TARGET_DIR/docmd`.
+The build command automatically generates rustdoc HTML using stable cargo doc
+and creates markdown files in `$CARGO_TARGET_DIR/docmd`.
 
 ## Commands
 
 ### build
 
-Generate rustdoc JSON and create markdown documentation from it.
+Generate rustdoc HTML and create markdown documentation from it.
 
 ```shell
 cargo docmd build --crate <CRATE>
@@ -49,28 +49,16 @@ cargo docmd -v build --crate serde
 
 #### What It Does
 
-1. Checks that nightly toolchain is installed
-2. Runs
-   `cargo +nightly rustdoc -p <crate> -- --output-format json -Z unstable-options`
-3. Parses the generated JSON file
-4. Creates the output directory if needed
-5. Logs a summary of parsed items by type
-6. Generates markdown files for all basic type items (structs, enums, unions,
-   type aliases)
-7. Generates an `index.md` file listing all public items grouped by type
-
-#### Requirements
-
-- Rust nightly toolchain must be installed. Install it with:
-    ```shell
-    rustup install nightly
-    ```
+1. Runs `cargo doc --package <crate> --no-deps` to generate HTML
+2. Parses type alias HTML files from the generated documentation
+3. Creates the output directory if needed
+4. Generates markdown files for type aliases only
+5. Logs a summary of generated files
 
 #### Limitations
 
-The build command currently generates markdown for basic types (structs, enums,
-unions, and type aliases). Other item types (traits, functions, modules, macros,
-etc.) are not yet documented but are listed in the index page.
+The build command currently generates markdown for type aliases only. Other item
+types (structs, enums, unions) will be added in future phases.
 
 ### browse
 
@@ -313,13 +301,10 @@ type Result<T> = std::result::Result<T, Error>;
 
 ## Current Limitations
 
-This section documents the current limitations of cargo docmd as of version
-0.1.0.
+This section documents current limitations of cargo docmd as of version 0.1.0.
 
-- **Build command**: Generates rustdoc JSON and creates markdown for basic types
-  (structs, enums, unions, type aliases). Other item types (traits, functions,
-  modules, macros, impl blocks, etc.) are not yet documented but are listed in
-  the index page.
+- **Build command**: Generates markdown for type aliases only. Other item types
+  (structs, enums, unions) will be added in future phases.
 - **Browse command**: Accepts crate name and optional item parameter but does
   not display documentation yet.
 - **Configuration**: The `--config` option is available but configuration file
@@ -348,19 +333,18 @@ Error: Failed to execute cargo rustdoc for crate 'crate_name':
 <command output>
 ```
 
-### JSON Not Found
+### Documentation Not Generated
 
-If the expected JSON file is missing, you will see:
+If HTML documentation was not generated for the crate, you will see:
 
 ```
-Error: Expected JSON file not found at 'path/to/json'
+Error: Documentation was not generated for crate 'crate_name'. Expected directory at 'path/to/doc'
 ```
 
 ## Exit Codes
 
 - `0`: Command executed successfully
-- `1`: Command failed (missing nightly, cargo execution error, JSON parsing
-  error, etc.)
+- `1`: Command failed (cargo execution error, HTML parsing error, etc.)
 
 ## Future Enhancements
 

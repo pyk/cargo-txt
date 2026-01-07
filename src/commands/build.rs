@@ -1,44 +1,63 @@
 //! Build command implementation.
 //!
-//! This module handles building documentation by executing cargo rustdoc,
-//! parsing the generated JSON, and preparing the output directory for markdown generation.
-
-use rustdoc_types::{Crate, ItemEnum, Visibility};
-use std::path::Path;
+//! This module handles building documentation by executing cargo doc,
+//! parsing the generated HTML files, and generating markdown documentation.
 
 use crate::cargo;
 use crate::error;
-use crate::markdown;
+use crate::items;
 
-/// Build markdown documentation from rustdoc JSON.
+/// Build markdown documentation from rustdoc HTML.
 ///
-/// This function takes a crate name, generates rustdoc JSON using cargo +nightly,
-/// parses it, and prepares the output directory for markdown generation.
+/// This function takes a crate name, generates HTML documentation using cargo doc,
+/// parses the HTML files for type aliases, and generates markdown documentation.
 pub fn build(crate_name: String) -> error::Result<()> {
-    cargo::nightly()?;
+    cargo::doc(&crate_name)?;
 
-    let json_path = cargo::rustdoc(&crate_name)?;
-
+    let html_dir = get_html_dir(&crate_name)?;
     let output_dir = get_output_dir()?;
+
     create_output_directory(&output_dir)?;
 
-    let krate = parse_rustdoc_json(&json_path)?;
+    let type_alias_count = parse_html_directory(&html_dir, &output_dir)?;
 
-    log_item_summary(&krate);
+    if type_alias_count > 0 {
+        println!(
+            "\nGenerated markdown documentation for {} type alias(es)",
+            type_alias_count
+        );
+    } else {
+        println!("\nNo type aliases found in documentation");
+    }
 
-    // Generate markdown files for all items
-    generate_all_items(&krate, &crate_name, &output_dir)?;
-
-    // Generate index page
-    markdown::index::generate_index(&krate, &output_dir)?;
-
-    println!("Documentation built successfully for {}", crate_name);
     println!("Output directory: {}", output_dir.display());
 
     Ok(())
 }
 
-/// Get the output directory for documentation.
+/// Get the HTML documentation directory for a crate.
+///
+/// This function constructs the path to the HTML documentation directory
+/// based on the crate name and target directory configuration.
+fn get_html_dir(crate_name: &str) -> error::Result<std::path::PathBuf> {
+    let target_dir = std::env::var("CARGO_TARGET_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::path::PathBuf::from("target"));
+
+    let html_dir = target_dir.join("doc").join(crate_name);
+
+    if !html_dir.exists() {
+        return Err(error::BuildError::DocNotGenerated {
+            crate_name: crate_name.to_string(),
+            expected_path: html_dir,
+        }
+        .into());
+    }
+
+    Ok(html_dir)
+}
+
+/// Get the output directory for markdown documentation.
 ///
 /// This function reads the `CARGO_TARGET_DIR` environment variable and
 /// returns a path to the `docmd` subdirectory within it.
@@ -48,7 +67,6 @@ fn get_output_dir() -> error::Result<std::path::PathBuf> {
         .unwrap_or_else(|_| std::path::PathBuf::from("target"));
 
     let output_dir = target_dir.join("docmd");
-    create_output_directory(&output_dir)?;
 
     Ok(output_dir)
 }
@@ -56,7 +74,7 @@ fn get_output_dir() -> error::Result<std::path::PathBuf> {
 /// Create the output directory if it doesn't exist.
 ///
 /// This function creates the directory and all parent directories if they don't exist.
-fn create_output_directory(path: &Path) -> error::Result<()> {
+fn create_output_directory(path: &std::path::Path) -> error::Result<()> {
     if !path.exists() {
         std::fs::create_dir_all(path).map_err(|error| {
             error::BuildError::OutputDirCreationFailed {
@@ -65,122 +83,129 @@ fn create_output_directory(path: &Path) -> error::Result<()> {
             }
         })?;
     }
+
     Ok(())
 }
 
-/// Parse the rustdoc JSON file.
+/// Parse HTML files and generate markdown documentation.
 ///
-/// This function reads the JSON file from disk and deserializes it into a
-/// rustdoc_types::Crate struct, providing detailed error messages if the file
-/// is missing or cannot be parsed.
-fn parse_rustdoc_json(json_path: &Path) -> error::Result<Crate> {
-    let json_content = std::fs::read_to_string(json_path).map_err(|error| {
-        let build_error = match error.kind() {
-            std::io::ErrorKind::NotFound => {
-                error::BuildError::JsonNotFound(json_path.to_path_buf())
-            }
-            _ => error::BuildError::JsonParseError {
-                path: json_path.to_path_buf(),
-                error: error.to_string(),
-            },
+/// This function iterates through HTML files in the documentation directory,
+/// identifies type aliases (files matching `type.*.html`), parses them using
+/// the TypeAlias struct, and generates markdown documentation.
+/// Recursively collect all HTML files from a directory.
+///
+/// This function walks through the directory tree starting at the given path
+/// and collects all HTML file paths, handling subdirectories recursively.
+fn collect_html_files_recursive(dir: &std::path::Path) -> error::Result<Vec<std::path::PathBuf>> {
+    let mut html_files = Vec::new();
+    let entries = error::wrap_with_path(std::fs::read_dir(dir), dir.to_path_buf())?;
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue,
         };
-        error::Error::Build(build_error)
-    })?;
 
-    serde_json::from_str(&json_content).map_err(|error| {
-        error::Error::Build(error::BuildError::JsonParseError {
-            path: json_path.to_path_buf(),
-            error: error.to_string(),
-        })
-    })
-}
+        let path = entry.path();
 
-/// Log a summary of the items in the crate documentation.
-///
-/// This function counts items by type and prints the summary to stdout,
-/// providing quick verification that the JSON was parsed successfully.
-fn log_item_summary(krate: &Crate) {
-    let mut counts: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
-
-    for item in krate.index.values() {
-        let type_name = markdown::utils::get_item_type_name(&item.inner);
-        // TODO: avoid this pattern?
-        *counts.entry(type_name).or_insert(0) += 1;
+        if path.is_dir() {
+            // Recursively search subdirectories
+            let sub_files = collect_html_files_recursive(&path)?;
+            html_files.extend(sub_files);
+        } else if path.is_file() {
+            let is_html = path.extension().and_then(|e| e.to_str()) == Some("html");
+            if is_html {
+                html_files.push(path);
+            }
+        }
     }
 
-    println!("\nParsed {} items from documentation:", krate.index.len());
-
-    let mut sorted_types: Vec<_> = counts.iter().collect();
-    sorted_types.sort_by_key(|&(name, _)| *name);
-
-    for (type_name, count) in sorted_types {
-        println!("  {}: {}", type_name, count);
-    }
-    println!();
+    Ok(html_files)
 }
 
-/// Generate markdown files for all public items in the crate.
+/// Parse HTML files and generate markdown documentation.
 ///
-/// This function iterates through all items in the crate index and generates
-/// markdown documentation for supported item types (structs, enums, unions,
-/// and type aliases).
-fn generate_all_items(krate: &Crate, crate_name: &str, output_dir: &Path) -> error::Result<()> {
-    let mut counts = std::collections::HashMap::new();
+/// This function recursively searches the HTML documentation directory for HTML files,
+/// identifies type aliases (files matching `type.*.html`), parses them using
+/// the TypeAlias struct, and generates markdown documentation.
+fn parse_html_directory(
+    html_dir: &std::path::Path,
+    output_dir: &std::path::Path,
+) -> error::Result<usize> {
+    let html_files = collect_html_files_recursive(html_dir)?;
 
-    for item in krate.index.values() {
-        // Skip private items and impl blocks
-        if !is_public_item(item) {
+    let mut type_alias_count = 0;
+
+    for path in html_files {
+        // Process only type alias files (type.*.html)
+        let file_name = path.file_name().and_then(|n| n.to_str());
+        let is_type_alias = file_name
+            .map(|name| name.starts_with("type.") && name.ends_with(".html"))
+            .unwrap_or(false);
+
+        if !is_type_alias {
             continue;
         }
 
-        match &item.inner {
-            ItemEnum::Struct(_) => {
-                markdown::r#struct::generate(krate, item, output_dir)?;
-                // TODO: avoid this pattern?
-                *counts.entry("struct").or_insert(0) += 1;
-            }
-            ItemEnum::Enum(_) => {
-                markdown::r#enum::generate(krate, item, output_dir)?;
-                *counts.entry("enum").or_insert(0) += 1;
-            }
-            ItemEnum::Union(_) => {
-                markdown::union::generate(krate, item, output_dir)?;
-                *counts.entry("union").or_insert(0) += 1;
-            }
-            ItemEnum::TypeAlias(alias_data) => {
-                markdown::type_alias::generate(
-                    item,
-                    alias_data,
-                    &krate.index,
-                    Some(crate_name),
-                    output_dir,
-                )?;
-                *counts.entry("type alias").or_insert(0) += 1;
-            }
-            _ => {
-                // Skip other item types for now
-            }
-        }
+        // Parse the HTML file
+        let html_content = error::wrap_with_path(std::fs::read_to_string(&path), path.clone())?;
+
+        let type_alias = error::wrap_with_path(
+            items::type_alias::TypeAlias::from_str(&html_content),
+            path.clone(),
+        )?;
+
+        // Generate markdown
+        let markdown_content = type_alias.markdown();
+
+        // Write markdown to output file
+        let markdown_path = output_dir.join(format!("{}.md", type_alias.name));
+
+        std::fs::write(&markdown_path, markdown_content).map_err(|error| {
+            error::MarkdownError::FileWriteFailed(markdown_path.clone(), error.to_string())
+        })?;
+
+        type_alias_count += 1;
     }
 
-    // Log generation summary
-    if !counts.is_empty() {
-        println!("\nGenerated markdown files:");
-        let mut sorted_counts: Vec<_> = counts.iter().collect();
-        sorted_counts.sort_by_key(|&(name, _)| *name);
-        for (type_name, count) in sorted_counts {
-            println!("  {} {}", type_name, count);
-        }
-        println!();
-    }
-
-    Ok(())
+    Ok(type_alias_count)
 }
 
-/// Check if an item is public and should be documented.
-///
-/// This function determines if an item should be included in the documentation
-/// by checking its visibility. Private items are excluded.
-fn is_public_item(item: &rustdoc_types::Item) -> bool {
-    matches!(item.visibility, Visibility::Public | Visibility::Crate)
+///////////////////////////////////////////////////////////////////////////////
+// Tests
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /////////////////////////////////////////////////////////////////////////////
+    // Path Construction Tests
+
+    #[test]
+    fn get_html_dir_constructs_correct_path() {
+        let result = get_html_dir("serde_json");
+        assert!(result.is_ok());
+
+        let path = result.unwrap();
+        assert!(path.ends_with("target/doc/serde_json"));
+    }
+
+    #[test]
+    fn get_output_dir_constructs_correct_path() {
+        let result = get_output_dir();
+        assert!(result.is_ok());
+
+        let path = result.unwrap();
+        assert!(path.ends_with("target/docmd"));
+    }
+
+    /////////////////////////////////////////////////////////////////////////////
+    // Error Tests
+
+    #[test]
+    fn get_html_dir_returns_error_for_nonexistent_crate() {
+        // Use a crate name that definitely doesn't have documentation
+        let result = get_html_dir("nonexistent_crate_12345");
+        assert!(result.is_err());
+    }
 }

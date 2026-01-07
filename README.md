@@ -2,13 +2,13 @@
 
 `cargo doc` for coding agents.
 
-cargo-docmd generates markdown documentation from rustdoc JSON files, optimized
+cargo-docmd generates markdown documentation from rustdoc HTML files, optimized
 for consumption by coding agents. It provides both generation and browsing
 capabilities.
 
 ## Features
 
-- Generate markdown from rustdoc JSON
+- Generate markdown from rustdoc HTML
 - Documentation browsing at crate and item level
 
 ## Installation
@@ -27,7 +27,7 @@ cargo docmd --help
 
 ## Quick Start
 
-Generate rustdoc JSON and markdown documentation:
+Generate markdown documentation:
 
 ```shell
 cargo docmd build --crate serde
@@ -54,7 +54,9 @@ Options:
 - `-c, --crate <CRATE>` - Crate name to build documentation for (required)
 - `-v, --verbose...` - Increase verbosity of output
 
-Output is placed in `$CARGO_TARGET_DIR/docmd` (defaults to `./target/docmd`).
+This command generates HTML documentation using `cargo doc` and parses it to
+create markdown files. Output is placed in `$CARGO_TARGET_DIR/docmd` (defaults
+to `./target/docmd`).
 
 Example:
 
@@ -98,10 +100,10 @@ These options apply to all subcommands:
 
 ## Current Status
 
-- **Build command**: Fully implemented. Generates rustdoc JSON using the nightly
-  toolchain, parses it, and creates the output directory. Logs a summary of
-  parsed items by type. Markdown file generation will be added in future
-  iterations.
+- **Build command**: Fully implemented for type aliases. Generates HTML
+  documentation using stable `cargo doc`, parses type alias HTML files, and
+  creates markdown output following the specified format. Other item types
+  (structs, enums, unions) will be added in future phases.
 - **Browse command**: Placeholder implementation. Accepts crate name and item
   parameters but does not display documentation yet.
 
