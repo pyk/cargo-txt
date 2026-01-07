@@ -9,6 +9,7 @@ mod error;
 mod html2md;
 
 use clap::{Parser, Subcommand};
+use clap_verbosity_flag::Verbosity;
 use commands::{browse, build};
 
 /// A cargo doc for coding agents
@@ -18,9 +19,8 @@ use commands::{browse, build};
 #[command(version = "0.1.0")]
 #[command(about = "A cargo doc for coding agents", long_about = None)]
 struct Args {
-    /// Enable debug output
-    #[arg(short, long)]
-    debug: bool,
+    #[command(flatten)]
+    verbosity: Verbosity,
 
     #[command(subcommand)]
     command: Command,
@@ -50,9 +50,13 @@ enum Command {
 fn main() -> error::Result<()> {
     let args = Args::parse();
 
+    let verbosity_level = args.verbosity.log_level_filter().to_string();
+    let env = env_logger::Env::default().default_filter_or(verbosity_level);
+    env_logger::Builder::from_env(env).init();
+
     match args.command {
-        Command::Build { crate_name } => build(crate_name, args.debug)?,
-        Command::Browse { crate_name, item } => browse(crate_name, item, args.debug)?,
+        Command::Build { crate_name } => build(crate_name)?,
+        Command::Browse { crate_name, item } => browse(crate_name, item)?,
     }
 
     Ok(())

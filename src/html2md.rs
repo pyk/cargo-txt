@@ -3,8 +3,9 @@
 //! This module provides functions to convert HTML strings to markdown
 //! by extracting the <main> element content and converting it to markdown.
 
-use crate::error;
 use scraper::{Html, Selector};
+
+use crate::error;
 
 /// Convert HTML string to markdown by extracting main element content.
 ///
@@ -100,15 +101,15 @@ fn convert_node(node: scraper::element_ref::ElementRef, output: &mut String) {
             if !output.ends_with(' ') && !output.is_empty() {
                 output.push(' ');
             }
-            if let Some(href) = node.value().attr("href") {
-                output.push('[');
+            let Some(href) = node.value().attr("href") else {
                 convert_children(node, output);
-                output.push_str("](");
-                output.push_str(href);
-                output.push(')');
-            } else {
-                convert_children(node, output);
-            }
+                return;
+            };
+            output.push('[');
+            convert_children(node, output);
+            output.push_str("](");
+            output.push_str(href);
+            output.push(')');
         }
         "ul" | "ol" => {
             convert_list(node, output, name == "ol");
@@ -165,10 +166,10 @@ fn convert_children(node: scraper::element_ref::ElementRef, output: &mut String)
                 }
             }
             scraper::Node::Element(_elem) => {
-                convert_node(
-                    scraper::element_ref::ElementRef::wrap(child).unwrap(),
-                    output,
-                );
+                let Some(elem_ref) = scraper::element_ref::ElementRef::wrap(child) else {
+                    continue;
+                };
+                convert_node(elem_ref, output);
             }
             _ => {}
         }
@@ -179,18 +180,21 @@ fn convert_children(node: scraper::element_ref::ElementRef, output: &mut String)
 fn convert_list(node: scraper::element_ref::ElementRef, output: &mut String, is_ordered: bool) {
     let mut index = 1;
     for child in node.children() {
-        if let Some(elem) = child.value().as_element() {
-            if elem.name() == "li" {
-                if is_ordered {
-                    output.push_str(&format!("{}. ", index));
-                    index += 1;
-                } else {
-                    output.push_str("- ");
-                }
-                let li_node = scraper::element_ref::ElementRef::wrap(child).unwrap();
-                convert_list_item(li_node, output);
-                output.push('\n');
+        let Some(elem) = child.value().as_element() else {
+            continue;
+        };
+        if elem.name() == "li" {
+            if is_ordered {
+                output.push_str(&format!("{}. ", index));
+                index += 1;
+            } else {
+                output.push_str("- ");
             }
+            let Some(li_node) = scraper::element_ref::ElementRef::wrap(child) else {
+                continue;
+            };
+            convert_list_item(li_node, output);
+            output.push('\n');
         }
     }
 }
@@ -214,10 +218,10 @@ fn convert_list_item(node: scraper::element_ref::ElementRef, output: &mut String
                 if !first_text {
                     output.push(' ');
                 }
-                convert_node(
-                    scraper::element_ref::ElementRef::wrap(child).unwrap(),
-                    output,
-                );
+                let Some(elem_ref) = scraper::element_ref::ElementRef::wrap(child) else {
+                    continue;
+                };
+                convert_node(elem_ref, output);
                 first_text = false;
             }
             _ => {}
@@ -233,84 +237,84 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_convert_heading() {
+    fn convert_heading() {
         let html = "<main><h1>Test Heading</h1></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "# Test Heading\n\n");
     }
 
     #[test]
-    fn test_convert_paragraph() {
+    fn convert_paragraph() {
         let html = "<main><p>Test paragraph</p></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "Test paragraph\n\n");
     }
 
     #[test]
-    fn test_convert_inline_code() {
+    fn convert_inline_code() {
         let html = "<main><p>Test <code>code</code></p></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "Test `code`\n\n");
     }
 
     #[test]
-    fn test_convert_link() {
+    fn convert_link() {
         let html = "<main><p>Test <a href=\"http://example.com\">link</a></p></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "Test [link](http://example.com)\n\n");
     }
 
     #[test]
-    fn test_convert_bold() {
+    fn convert_bold() {
         let html = "<main><p>Test <strong>bold</strong></p></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "Test **bold**\n\n");
     }
 
     #[test]
-    fn test_convert_italic() {
+    fn convert_italic() {
         let html = "<main><p>Test <em>italic</em></p></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "Test _italic_\n\n");
     }
 
     #[test]
-    fn test_convert_blockquote() {
+    fn convert_blockquote() {
         let html = "<main><blockquote>Quote text</blockquote></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "> Quote text\n\n");
     }
 
     #[test]
-    fn test_convert_unordered_list() {
+    fn convert_unordered_list() {
         let html = "<main><ul><li>Item 1</li><li>Item 2</li></ul></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "- Item 1\n- Item 2\n\n");
     }
 
     #[test]
-    fn test_convert_ordered_list() {
+    fn convert_ordered_list() {
         let html = "<main><ol><li>First</li><li>Second</li></ol></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "1. First\n2. Second\n\n");
     }
 
     #[test]
-    fn test_convert_code_block() {
+    fn convert_code_block() {
         let html = "<main><pre><code>fn test() {}</code></pre></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "```fn test() {}\n```\n\n");
     }
 
     #[test]
-    fn test_missing_main_element() {
+    fn missing_main_element() {
         let html = "<div><h1>No main</h1></div>";
         let result = convert(html);
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_convert_nested_elements() {
+    fn convert_nested_elements() {
         let html = "<main><p><strong>Bold</strong> and <em>italic</em></p></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "**Bold**and _italic_\n\n");

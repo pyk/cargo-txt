@@ -4,19 +4,16 @@
 //! crate documentation. Users can either browse an entire crate or display a
 //! specific item.
 
+use log::debug;
+
 use crate::error;
 
 /// Browse crate documentation.
 ///
 /// This function displays documentation for the specified crate. If an item is
 /// provided, only that specific item's documentation is shown.
-pub fn browse(crate_name: String, item: Option<String>, debug: bool) -> error::Result<()> {
-    if debug {
-        eprintln!(
-            "DEBUG: Browse command: crate={}, item={:?}",
-            crate_name, item
-        );
-    }
+pub fn browse(crate_name: String, item: Option<String>) -> error::Result<()> {
+    debug!("Browse command: crate={}, item={:?}", crate_name, item);
     println!("Browse command: crate={}, item={:?}", crate_name, item);
     println!("Not yet implemented");
     Ok(())

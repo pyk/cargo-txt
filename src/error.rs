@@ -4,7 +4,7 @@
 //! providing consistent error handling and user-friendly error messages.
 
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Result type alias for convenience.
 ///
@@ -47,15 +47,6 @@ impl From<BuildError> for Error {
 impl From<HtmlExtractError> for Error {
     fn from(err: HtmlExtractError) -> Self {
         Error::Build(err.into())
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
-        Error::Build(BuildError::markdown_write_failed(
-            &PathBuf::from("<unknown>"),
-            err.to_string(),
-        ))
     }
 }
 
@@ -114,11 +105,9 @@ pub enum BuildError {
         path: PathBuf,
         source: Box<dyn std::error::Error + Send + Sync>,
     },
-    /// Documentation was not generated for the crate
-    DocNotGenerated {
-        crate_name: String,
-        expected_path: PathBuf,
-    },
+    /// Failed to parse cargo doc output to find the generated directory
+    CargoDocOutputParseFailed { output_preview: String },
+
     /// Failed to write markdown file
     MarkdownWriteFailed { path: PathBuf, error: String },
 }
@@ -163,15 +152,11 @@ impl fmt::Display for BuildError {
                     source
                 )
             }
-            BuildError::DocNotGenerated {
-                crate_name,
-                expected_path,
-            } => {
+            BuildError::CargoDocOutputParseFailed { output_preview } => {
                 write!(
                     f,
-                    "Documentation was not generated for crate '{}'. Expected directory at '{}'",
-                    crate_name,
-                    expected_path.display()
+                    "Failed to parse cargo doc output - could not find 'Generated' line.\nOutput preview:\n{}",
+                    output_preview
                 )
             }
             BuildError::MarkdownWriteFailed { path, error } => {
@@ -206,16 +191,6 @@ impl From<HtmlExtractError> for BuildError {
         BuildError::HtmlParseFailed {
             path: PathBuf::from("<unknown>"),
             source: Box::new(err),
-        }
-    }
-}
-
-impl BuildError {
-    /// Creates a new MarkdownWriteFailed error from a path and error message.
-    pub fn markdown_write_failed(path: &Path, error: String) -> Self {
-        BuildError::MarkdownWriteFailed {
-            path: path.to_path_buf(),
-            error,
         }
     }
 }

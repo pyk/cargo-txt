@@ -41,6 +41,62 @@ cargo docmd browse serde
 
 ## Usage
 
+### Verbosity
+
+cargo-docmd uses the `env_logger` and `log` crates for flexible logging. You can
+control output verbosity using command-line flags or environment variables.
+
+#### Command-line flags
+
+- `-v` - Show warnings
+- `-vv` - Show info messages (important milestones)
+- `-vvv` - Show debug messages (detailed operational info, equivalent to old
+  `--debug` flag)
+- `-vvvv` - Show trace messages (very detailed diagnostic info)
+- `-q, --quiet` - Suppress all output (only errors are shown)
+
+Examples:
+
+```shell
+# Show warnings
+cargo docmd build serde -v
+
+# Show info messages
+cargo docmd build serde -vv
+
+# Show debug messages (equivalent to old --debug flag)
+cargo docmd build serde -vvv
+
+# Show trace messages (very verbose)
+cargo docmd build serde -vvvv
+
+# Suppress output (only errors)
+cargo docmd build serde -q
+```
+
+#### Environment variables
+
+You can also control verbosity using the `RUST_LOG` environment variable:
+
+```shell
+# Show debug messages
+RUST_LOG=debug cargo docmd build serde
+
+# Show warnings and errors only
+RUST_LOG=warn cargo docmd build serde
+
+# Show info and above
+RUST_LOG=info cargo docmd build serde
+
+# Show trace and above (very verbose)
+RUST_LOG=trace cargo docmd build serde
+
+# Customize log levels for specific modules
+RUST_LOG=docmd=debug,cargo=warn cargo docmd build serde
+```
+
+By default, cargo-docmd shows only error messages.
+
 ### Build Command
 
 Generate markdown documentation for a crate:
