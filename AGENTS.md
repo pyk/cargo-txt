@@ -22,3 +22,4 @@ When implementing a plan:
     - `writing-docs.md` for DOCS.md
 5. Do not use git commands (can cause data loss).
 6. Use `cargo test` to run tests and `rust-check` after changes.
+7. Review and update the plan checklist after implementation.
