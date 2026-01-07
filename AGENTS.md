@@ -1,6 +1,6 @@
 # Planning Mode
 
-When creating a plan:
+When creating or updating a plan:
 
 1. Review `README.md` to understand the project.
 2. Review `DOCS.md` (if exists) to understand the implementation.
