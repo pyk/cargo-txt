@@ -30,13 +30,13 @@ cargo docmd --help
 Generate markdown documentation:
 
 ```shell
-cargo docmd build --crate serde
+cargo docmd build serde
 ```
 
 Browse crate documentation:
 
 ```shell
-cargo docmd browse --crate serde
+cargo docmd browse serde
 ```
 
 ## Usage
@@ -46,13 +46,12 @@ cargo docmd browse --crate serde
 Generate markdown documentation for a crate:
 
 ```shell
-cargo docmd build --crate <CRATE>
+cargo docmd build <CRATE>
 ```
 
-Options:
+Arguments:
 
-- `-c, --crate <CRATE>` - Crate name to build documentation for (required)
-- `-v, --verbose...` - Increase verbosity of output
+- `<CRATE>` - Crate name to build documentation for (required)
 
 This command generates HTML documentation using `cargo doc` and parses it to
 create markdown files. Output is placed in `$CARGO_TARGET_DIR/docmd` (defaults
@@ -61,7 +60,7 @@ to `./target/docmd`).
 Example:
 
 ```shell
-cargo docmd build --crate serde
+cargo docmd build serde
 ```
 
 ### Browse Command
@@ -69,34 +68,26 @@ cargo docmd build --crate serde
 Browse crate documentation:
 
 ```shell
-cargo docmd browse --crate <CRATE>
+cargo docmd browse <CRATE>
 ```
+
+Arguments:
+
+- `<CRATE>` - Crate name to browse (required)
 
 Options:
 
-- `-c, --crate <CRATE>` - Crate name to browse (required)
 - `-i, --item <ITEM>` - Optional specific item to display
-- `-v, --verbose...` - Increase verbosity of output
 
 Examples:
 
 ```shell
 # Browse entire crate
-cargo docmd browse --crate serde
+cargo docmd browse serde
 
 # Browse specific item
-cargo docmd browse --crate serde --item Serialize
+cargo docmd browse serde --item Serialize
 ```
-
-### Global Options
-
-These options apply to all subcommands:
-
-- `-v, --verbose...` - Increase verbosity of output (use multiple times: -vv,
-  -vvv)
-- `-c, --config <CONFIG>` - Path to configuration file
-- `-h, --help` - Print help information
-- `-V, --version` - Print version information
 
 ## Current Status
 

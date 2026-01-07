@@ -19,14 +19,14 @@ and creates markdown files in `$CARGO_TARGET_DIR/docmd`.
 Generate rustdoc HTML and create markdown documentation from it.
 
 ```shell
-cargo docmd build --crate <CRATE>
+cargo docmd build <CRATE>
 ```
 
-#### Options
+#### Arguments
 
-- `--crate <CRATE>` (or `-c`)
+- `<CRATE>`
     - **Required**: Crate name to build documentation for
-    - Example: `--crate serde`
+    - Example: `serde`
 
 #### Output Location
 
@@ -38,13 +38,7 @@ not set, the default is `./target/docmd`.
 Build documentation for serde crate:
 
 ```shell
-cargo docmd build --crate serde
-```
-
-Build with verbose output:
-
-```shell
-cargo docmd -v build --crate serde
+cargo docmd build serde
 ```
 
 #### What It Does
@@ -65,14 +59,16 @@ types (structs, enums, unions) will be added in future phases.
 Browse crate documentation in the terminal.
 
 ```shell
-cargo docmd browse --crate <CRATE>
+cargo docmd browse <CRATE>
 ```
 
-#### Options
+#### Arguments
 
-- `--crate <CRATE>` (or `-c`)
+- `<CRATE>`
     - **Required**: Crate name to browse
-    - Example: `--crate serde`
+    - Example: `serde`
+
+#### Options
 
 - `--item <ITEM>` (or `-i`)
     - **Optional**: Display documentation for a specific item only
@@ -83,13 +79,13 @@ cargo docmd browse --crate <CRATE>
 Browse entire crate documentation:
 
 ```shell
-cargo docmd browse --crate serde
+cargo docmd browse serde
 ```
 
 Display specific item documentation:
 
 ```shell
-cargo docmd browse --crate serde --item Serialize
+cargo docmd browse serde --item Serialize
 ```
 
 #### Limitations
@@ -97,58 +93,6 @@ cargo docmd browse --crate serde --item Serialize
 The browse command currently prints the received parameters but does not display
 documentation. Interactive browsing functionality will be implemented in future
 iterations.
-
-## Global Options
-
-These options apply to all subcommands.
-
-### `--verbose` / `-v`
-
-Increase verbosity of output. Use multiple times for more verbose output (e.g.,
-`-vv`, `-vvv`).
-
-Examples:
-
-```shell
-cargo docmd -v build --crate serde
-cargo docmd -vv browse --crate serde
-```
-
-### `--config` / `-c`
-
-Path to configuration file. This option is currently reserved for future
-implementation.
-
-Example:
-
-```shell
-cargo docmd --config ./config.toml build --crate serde
-```
-
-#### Limitations
-
-Configuration file parsing is not yet implemented. The `--config` option is
-accepted but has no effect.
-
-### `--help` / `-h`
-
-Print help information for the command or subcommand.
-
-Examples:
-
-```shell
-cargo docmd --help
-cargo docmd build --help
-cargo docmd browse --help
-```
-
-### `--version` / `-V`
-
-Print version information.
-
-```shell
-cargo docmd --version
-```
 
 ## Markdown Output Format
 
@@ -307,10 +251,6 @@ This section documents current limitations of cargo docmd as of version 0.1.0.
   (structs, enums, unions) will be added in future phases.
 - **Browse command**: Accepts crate name and optional item parameter but does
   not display documentation yet.
-- **Configuration**: The `--config` option is available but configuration file
-  parsing is not implemented.
-- **Verbosity**: The `--verbose` flag is accepted but does not affect output
-  behavior yet.
 
 ## Error Handling
 

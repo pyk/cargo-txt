@@ -12,49 +12,29 @@ use clap::{Parser, Subcommand};
 use commands::{browse, build};
 
 /// A cargo doc for coding agents
-///
-/// cargo-docmd generates markdown documentation from rustdoc JSON files,
-/// optimized for consumption by coding agents. It provides both build
-/// and browse capabilities.
 #[derive(Parser)]
-#[command(name = "cargo-docmd")]
+#[command(name = "cargo docmd")]
+#[command(bin_name = "cargo docmd")]
 #[command(version = "0.1.0")]
 #[command(about = "A cargo doc for coding agents", long_about = None)]
 struct Args {
-    /// Increase verbosity of output
-    ///
-    /// Use multiple times for more verbose output (e.g., -vv, -vvv).
-    #[arg(short, long, action = clap::ArgAction::Count)]
-    verbose: u8,
-
-    /// Path to configuration file
-    #[arg(short, long)]
-    config: Option<std::path::PathBuf>,
-
     #[command(subcommand)]
     command: Command,
 }
 
 #[derive(Subcommand)]
 enum Command {
-    /// Build markdown documentation from rustdoc HTML
-    ///
-    /// Generates rustdoc HTML using cargo doc and parses it to create
-    /// markdown files suitable for coding agents. Output is placed in
-    /// `$CARGO_TARGET_DIR/docmd`.
+    /// Generate markdown documentation from rustdoc HTML for coding agents.
     Build {
         /// Crate name to build documentation for
-        #[arg(short, long = "crate", value_name = "CRATE")]
+        #[arg(value_name = "CRATE")]
         crate_name: String,
     },
 
-    /// Browse crate documentation
-    ///
-    /// Displays crate documentation in a terminal-friendly format. Optionally,
-    /// you can specify a specific item to display only that documentation.
+    /// Browse crate documentation.
     Browse {
         /// Crate name to browse
-        #[arg(short, long = "crate", value_name = "CRATE")]
+        #[arg(value_name = "CRATE")]
         crate_name: String,
 
         /// Optional specific item to display
