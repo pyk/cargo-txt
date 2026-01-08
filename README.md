@@ -1,49 +1,52 @@
-# cargo-txt
+<p align="center">
+  <a href="https://pyk.sh">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/pyk/cargo-txt/blob/main/.github/logo-dark.svg">
+      <img alt="pyk/cargo-txt logo" src="https://github.com/pyk/cargo-txt/blob/main/.github/logo-light.svg">
+    </picture>
+  </a>
+</p>
 
-`cargo doc` for coding agents.
+<p align="center">
+    <code>cargo doc</code> for coding agents
+<p>
 
-cargo-txt generates markdown documentation from rustdoc HTML files, optimized
-for consumption by coding agents. It provides both generation and browsing
-capabilities.
+<p align="center">
+  <img src="https://img.shields.io/crates/v/txt.svg?colorA=00f&colorB=fff&style=flat&logo=rust" alt="Crates.io">
+  <img src="https://img.shields.io/crates/d/txt?colorA=00f&colorB=fff&style=flat&logo=rust" alt="Downloads">
+  <img src="https://img.shields.io/github/license/pyk/cargo-txt?colorA=00f&colorB=fff&style=flat" alt="MIT License">
+</p>
 
-## Features
+## Getting started
 
-- Generate markdown from rustdoc HTML by extracting the `<main>` element
-- Documentation browsing at crate and item level
+> [!WARNING]
+>
+> `cargo-txt` is in early active development, expect changes on every release.
 
-## Installation
+`cargo-txt` is a cargo subcommand that your LLM or Coding Agents can use to
+access the crate documentation locally.
 
-Install the cargo-txt binary:
+To use it, install the binary with this command:
 
 ```shell
 cargo install txt
 ```
 
-Once installed, use it as a cargo subcommand:
+Add this instruction to your coding agent:
 
-```shell
-cargo txt --help
+```markdown
+Use `cargo txt open <crate-item>` to access the crate documentation.
+
+For example:
+
+- Access serde documentation index: `cargo txt open serde`
+- Access `serde::Deserialize` trait doc: `cargo txt open serde::Deserialize`
 ```
 
-## Quick Start
+## Features
 
-Open and view crate documentation:
-
-```shell
-cargo txt open serde
-```
-
-View specific item documentation:
-
-```shell
-cargo txt open serde::Error
-```
-
-Generate markdown documentation:
-
-```shell
-cargo txt build serde
-```
+- Generate markdown from rustdoc HTML
+- Documentation browsing at crate and item level
 
 ## Usage
 
