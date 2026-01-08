@@ -1,4 +1,4 @@
-//! cargo-docmd: A cargo doc for coding agents
+//! cargo-txt: A cargo doc for coding agents
 //!
 //! This tool converts rustdoc HTML output into markdown documentation designed
 //! for coding agents to browse and understand crate APIs.
@@ -14,8 +14,8 @@ use commands::{build, open};
 
 /// A cargo doc for coding agents
 #[derive(Parser)]
-#[command(name = "cargo docmd")]
-#[command(bin_name = "cargo docmd")]
+#[command(name = "cargo txt")]
+#[command(bin_name = "cargo txt")]
 #[command(version = "0.1.0")]
 #[command(about = "A cargo doc for coding agents", long_about = None)]
 struct Args {
@@ -44,7 +44,17 @@ enum Command {
 }
 
 fn main() -> error::Result<()> {
-    let args = Args::parse();
+    // 1. Collect arguments
+    let mut args: Vec<String> = std::env::args().collect();
+
+    // 2. If called via `cargo txt`, Cargo appends subcommand name ("txt") as first arg.
+    // We need to remove it so our actual subcommands (build, open) are recognized.
+    if args.len() > 1 && args[1] == "txt" {
+        args.remove(1);
+    }
+
+    // 3. Parse modified arguments using parse_from
+    let args = Args::parse_from(&args);
 
     let verbosity_level = args.verbosity.log_level_filter().to_string();
     let env = env_logger::Env::default().default_filter_or(verbosity_level);

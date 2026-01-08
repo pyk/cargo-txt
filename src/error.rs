@@ -1,4 +1,4 @@
-//! Centralized error types for cargo-docmd.
+//! Centralized error types for cargo-txt.
 //!
 //! This module defines all error types used throughout the application,
 //! providing consistent error handling and user-friendly error messages.
@@ -12,7 +12,7 @@ use std::path::PathBuf;
 /// and ensures consistent error types.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Top-level error type for cargo-docmd operations.
+/// Top-level error type for cargo-txt operations.
 ///
 /// This enum wraps specific error types for different operations,
 /// allowing for targeted error handling while maintaining a common

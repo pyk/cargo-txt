@@ -1,10 +1,10 @@
 [package]
-name = "docmd"
+name = "txt"
 version = "0.1.0"
 edition = "2024"
 
 [[bin]]
-name = "cargo-docmd"
+name = "cargo-txt"
 path = "src/main.rs"
 
 [dependencies]

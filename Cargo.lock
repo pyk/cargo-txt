@@ -174,21 +174,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "docmd"
-version = "0.1.0"
-dependencies = [
- "clap",
- "clap-verbosity-flag",
- "env_logger",
- "log",
- "rustdoc-types",
- "scraper",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
 name = "dtoa"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -776,6 +761,21 @@ dependencies = [
  "futf",
  "mac",
  "utf-8",
+]
+
+[[package]]
+name = "txt"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "clap-verbosity-flag",
+ "env_logger",
+ "log",
+ "rustdoc-types",
+ "scraper",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

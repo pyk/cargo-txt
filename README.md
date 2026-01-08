@@ -1,8 +1,8 @@
-# cargo-docmd
+# cargo-txt
 
 `cargo doc` for coding agents.
 
-cargo-docmd generates markdown documentation from rustdoc HTML files, optimized
+cargo-txt generates markdown documentation from rustdoc HTML files, optimized
 for consumption by coding agents. It provides both generation and browsing
 capabilities.
 
@@ -13,16 +13,16 @@ capabilities.
 
 ## Installation
 
-Install the cargo-docmd binary:
+Install the cargo-txt binary:
 
 ```shell
-cargo install docmd
+cargo install txt
 ```
 
 Once installed, use it as a cargo subcommand:
 
 ```shell
-cargo docmd --help
+cargo txt --help
 ```
 
 ## Quick Start
@@ -30,19 +30,19 @@ cargo docmd --help
 Open and view crate documentation:
 
 ```shell
-cargo docmd open serde
+cargo txt open serde
 ```
 
 View specific item documentation:
 
 ```shell
-cargo docmd open serde::Error
+cargo txt open serde::Error
 ```
 
 Generate markdown documentation:
 
 ```shell
-cargo docmd build serde
+cargo txt build serde
 ```
 
 ## Usage
@@ -52,7 +52,7 @@ cargo docmd build serde
 Open and view crate documentation:
 
 ```shell
-cargo docmd open <ITEM_PATH>
+cargo txt open <ITEM_PATH>
 ```
 
 **Arguments:**
@@ -67,14 +67,14 @@ cargo docmd open <ITEM_PATH>
 View all items in a crate:
 
 ```shell
-cargo docmd open serde
+cargo txt open serde
 ```
 
 View specific item documentation:
 
 ```shell
-cargo docmd open serde::Error
-cargo docmd open serde::ser::StdError
+cargo txt open serde::Error
+cargo txt open serde::ser::StdError
 ```
 
 **How It Works:**
@@ -90,11 +90,11 @@ cargo docmd open serde::ser::StdError
 **Auto-Build:**
 
 The open command automatically builds documentation if it doesn't exist. You
-don't need to run `cargo docmd build` separately.
+don't need to run `cargo txt build` separately.
 
 ### Verbosity
 
-cargo-docmd uses the `env_logger` and `log` crates for flexible logging. You can
+cargo-txt uses the `env_logger` and `log` crates for flexible logging. You can
 control output verbosity using command-line flags or environment variables.
 
 #### Command-line flags
@@ -110,19 +110,19 @@ Examples:
 
 ```shell
 # Show warnings
-cargo docmd build serde -v
+cargo txt build serde -v
 
 # Show info messages
-cargo docmd build serde -vv
+cargo txt build serde -vv
 
 # Show debug messages (equivalent to old --debug flag)
-cargo docmd build serde -vvv
+cargo txt build serde -vvv
 
 # Show trace messages (very verbose)
-cargo docmd build serde -vvvv
+cargo txt build serde -vvvv
 
 # Suppress output (only errors)
-cargo docmd build serde -q
+cargo txt build serde -q
 ```
 
 #### Environment variables
@@ -131,29 +131,29 @@ You can also control verbosity using the `RUST_LOG` environment variable:
 
 ```shell
 # Show debug messages
-RUST_LOG=debug cargo docmd build serde
+RUST_LOG=debug cargo txt build serde
 
 # Show warnings and errors only
-RUST_LOG=warn cargo docmd build serde
+RUST_LOG=warn cargo txt build serde
 
 # Show info and above
-RUST_LOG=info cargo docmd build serde
+RUST_LOG=info cargo txt build serde
 
 # Show trace and above (very verbose)
-RUST_LOG=trace cargo docmd build serde
+RUST_LOG=trace cargo txt build serde
 
 # Customize log levels for specific modules
-RUST_LOG=docmd=debug,cargo=warn cargo docmd build serde
+RUST_LOG=txt=debug,cargo=warn cargo txt build serde
 ```
 
-By default, cargo-docmd shows only error messages.
+By default, cargo-txt shows only error messages.
 
 ### Build Command
 
 Generate markdown documentation for a crate:
 
 ```shell
-cargo docmd build <CRATE>
+cargo txt build <CRATE>
 ```
 
 Arguments:
@@ -172,7 +172,7 @@ You cannot build documentation for arbitrary crates from crates.io.
 Example:
 
 ```shell
-cargo docmd build serde
+cargo txt build serde
 ```
 
 Output:
@@ -184,32 +184,13 @@ Generated markdown: /path/to/project/target/docmd/serde/index.md
 Error example:
 
 ```shell
-$ cargo docmd build random-crate
+$ cargo txt build random-crate
 Error: Crate 'random-crate' is not an installed dependency.
 
 Available crates: clap, rustdoc-types, serde, serde_json, tempfile
 
 Only installed dependencies can be built. Add the crate to Cargo.toml as a dependency first.
 ```
-
-### Feature Detection
-
-cargo-docmd automatically detects which features are enabled for a crate from
-your Cargo.toml. When you run `cargo docmd build <crate>`, the tool:
-
-1. Reads your Cargo.toml via cargo metadata
-2. Extracts the enabled features for the specified crate
-3. Passes those features to cargo doc when generating documentation
-
-Example:
-
-```toml
-[dependencies]
-clap = { version = "4.5", features = ["derive"] }
-```
-
-Running `cargo docmd build clap` will automatically use the `derive` feature
-when generating documentation.
 
 ## Current Status
 
@@ -231,7 +212,7 @@ To install the binary locally for development:
 cargo install --path .
 ```
 
-This installs the `cargo-docmd` binary directly from the source code in the
+This installs the `cargo-txt` binary directly from the source code in the
 current directory.
 
 To build and run the binary without installing:

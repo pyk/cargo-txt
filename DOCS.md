@@ -1,20 +1,20 @@
-# cargo-docmd Documentation
+# cargo-txt Documentation
 
-cargo-docmd generates markdown documentation from rustdoc HTML files. The tool
+cargo-txt generates markdown documentation from rustdoc HTML files. The tool
 provides generation and browsing capabilities optimized for coding agents.
 
 ## Installation
 
-Install the cargo-docmd binary:
+Install the cargo-txt binary:
 
 ```shell
-cargo install docmd
+cargo install txt
 ```
 
 Use it as a cargo subcommand:
 
 ```shell
-cargo docmd --help
+cargo txt --help
 ```
 
 ## Commands
@@ -24,7 +24,7 @@ cargo docmd --help
 Open and view crate documentation:
 
 ```shell
-cargo docmd open <ITEM_PATH>
+cargo txt open <ITEM_PATH>
 ```
 
 **Arguments:**
@@ -39,14 +39,14 @@ cargo docmd open <ITEM_PATH>
 View all items in a crate:
 
 ```shell
-cargo docmd open serde
+cargo txt open serde
 ```
 
 View specific item documentation:
 
 ```shell
-cargo docmd open serde::Error
-cargo docmd open serde::ser::StdError
+cargo txt open serde::Error
+cargo txt open serde::ser::StdError
 ```
 
 **How It Works:**
@@ -62,7 +62,7 @@ cargo docmd open serde::ser::StdError
 **Auto-Build:**
 
 The open command automatically builds documentation if it doesn't exist. You
-don't need to run `cargo docmd build` separately. It checks for the existence of
+don't need to run `cargo txt build` separately. It checks for the existence of
 `target/docmd/<crate>/all.md` and triggers a build if the file is missing.
 
 **Error Handling:**
@@ -91,7 +91,7 @@ Attempted paths:
 Generate markdown documentation for a crate:
 
 ```shell
-cargo docmd build <CRATE>
+cargo txt build <CRATE>
 ```
 
 **Arguments:**
@@ -103,7 +103,7 @@ cargo docmd build <CRATE>
 Build documentation for the serde crate:
 
 ```shell
-cargo docmd build serde
+cargo txt build serde
 ```
 
 Output:
@@ -123,12 +123,6 @@ determined by cargo metadata. The following files are generated:
 - `index.md` - Crate overview (from `index.html`)
 - Individual item markdown files (e.g., `struct.Error.md`, `trait.Serialize.md`)
   with preserved directory structure
-
-**Feature Detection:**
-
-The build command automatically detects enabled features from your `Cargo.toml`.
-When you run `cargo docmd build <crate>`, the tool passes the crate's features
-to `cargo doc`.
 
 **Crate Validation:**
 
@@ -224,7 +218,7 @@ The build command uses the `scraper` crate to convert rustdoc HTML to markdown:
 
 ## Verbosity
 
-cargo-docmd uses `env_logger` and `log` for flexible logging. Control output
+cargo-txt uses `env_logger` and `log` for flexible logging. Control output
 verbosity with command-line flags or environment variables.
 
 ### Command-line Flags
@@ -238,9 +232,9 @@ verbosity with command-line flags or environment variables.
 **Examples:**
 
 ```shell
-cargo docmd build serde -v
-cargo docmd build serde -vv
-cargo docmd build serde -q
+cargo txt build serde -v
+cargo txt build serde -vv
+cargo txt build serde -q
 ```
 
 ### Environment Variables
@@ -248,19 +242,19 @@ cargo docmd build serde -q
 Control verbosity using the `RUST_LOG` environment variable:
 
 ```shell
-RUST_LOG=debug cargo docmd build serde
-RUST_LOG=warn cargo docmd build serde
-RUST_LOG=info cargo docmd build serde
-RUST_LOG=trace cargo docmd build serde
+RUST_LOG=debug cargo txt build serde
+RUST_LOG=warn cargo txt build serde
+RUST_LOG=info cargo txt build serde
+RUST_LOG=trace cargo txt build serde
 ```
 
 Customize log levels for specific modules:
 
 ```shell
-RUST_LOG=docmd=debug,cargo=warn cargo docmd build serde
+RUST_LOG=txt=debug,cargo=warn cargo txt build serde
 ```
 
-By default, cargo-docmd shows only error messages.
+By default, cargo-txt shows only error messages.
 
 ## Error Handling
 
