@@ -36,6 +36,7 @@ When implementing a plan:
 6. Do not use git restore commands (can cause data loss).
 7. Use `cargo test` to run tests and `rust-check` after changes.
 8. Review and update the plan checklist after implementation.
+9. Use `cargo install --path .` before running `cargo txt`.
 
 # Reviewing Mode
 
