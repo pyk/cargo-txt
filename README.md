@@ -1,8 +1,8 @@
 <p align="center">
   <a href="https://pyk.sh">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/pyk/cargo-txt/blob/main/.github/logo-dark.svg">
-      <img alt="pyk/cargo-txt logo" src="https://github.com/pyk/cargo-txt/blob/main/.github/logo-light.svg" height="64" width="auto">
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/pyk/cargo-txt/refs/heads/main/.github/logo-dark.svg">
+      <img alt="pyk/cargo-txt logo" src="https://raw.githubusercontent.com/pyk/cargo-txt/refs/heads/main/.github/logo-light.svg" height="64" width="auto">
     </picture>
   </a>
 </p>
