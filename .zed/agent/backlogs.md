@@ -42,3 +42,21 @@ fn extract_aliased_type(document: &Html) -> error::Result<String> {
 
 as it returns empty string if aliased_type not found. Samething also happen in
 other function such as `extract_variants` where it returns empty array.
+
+## BuildError
+
+most of the BuildError type only use `std::io::Error` as source, we need to
+review how all BuildError is used and refactor it to not use boxed approach.
+
+## rename to `txt`
+
+- crates.io/crates/txt is available
+- we should rename the crate name to `txt`
+- we should rename the binary name to `cargo-txt`
+- we should not update any reference to `cargo-docmd` in agent files
+  `.zed/agent/**/*.md`
+
+## refactor HtmlParse Selector Error to include content
+
+- we should include the `content` html in the error for debugging purpose why
+  selector extraction failed
