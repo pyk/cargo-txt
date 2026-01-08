@@ -1,0 +1,335 @@
+# Rust Coding Guidelines: Control Flow & Core Principles
+
+CRITICAL: You must follow these strict Rust coding guidelines for control flow,
+function design, and general code structure.
+
+## 1. Favor linear control flow (guard clauses) over nesting
+
+Avoid deep nesting (`if let` chains). Instead, extract values into named locals
+and use guard clauses (`continue`, `return`, `break`) to exit early. This keeps
+the indentation flat and the logic linear.
+
+Specific preferences:
+
+- Avoid `if let` when it hides the "else" / "error" path or encourages nesting.
+- Prefer `let-else` for early returns.
+- Prefer explicit `match` if multiple arms are needed, but keep the arms
+  shallow.
+
+🛑 Bad (Nested):
+
+```rust
+for item in &items {
+    if let ItemType::Process(item) = item {
+        if let Status::Active = item.status {
+            match process_item(item) {
+                Ok(result) => results.push(result),
+                Err(e) => return Err(e),
+            }
+        }
+    }
+}
+```
+
+✅ **Good (Linear):**
+
+```rust
+for item in &items {
+    let process = match item {
+        ItemType::Process(item) => item,
+        _ => continue,
+    };
+
+    // Extract status check to a boolean for clarity
+    let is_active = matches!(process.status, Status::Active);
+    if !is_active {
+        continue;
+    }
+
+    results.push(process_item(process)?);
+}
+```
+
+## 2. Separate data extraction from validation ("Peel the Onion")
+
+Do not combine complex destructuring and boolean logic in a single `match` arm.
+Do not use "hero one-liners" that match deeply into a structure (like `syn`
+ASTs) all at once.
+
+Strategy:
+
+1. Extract the outer layer (e.g., ensure it's a Literal).
+2. Check the specific type (e.g., ensure it's a String Literal).
+3. Return errors immediately if a step fails.
+
+🛑 Bad (Deep Match & Logic):
+
+```rust
+// Hard to debug: did it fail because it's not a Container? Or not a StringItem?
+if let Container::Item(ItemData { data: StringType(s), .. }) = val {
+   // ...
+}
+```
+
+✅ **Good (Step-by-Step Extraction):**
+
+```rust
+// Step 1: Unwrap Container
+let container = match val {
+    Data::Container(c) => c,
+    _ => return Err("expected container"),
+};
+
+// Step 2: Unwrap Item
+let item = match container.data {
+    ItemType::StringItem(s) => s,
+    _ => return Err("expected string item"),
+};
+```
+
+## 3. Optimize Data Flow (Move over Clone)
+
+Be hyper-aware of ownership. If a function consumes data (takes `T` instead of
+`&T`), move the original value instead of cloning it.
+
+- Avoid `func(data.clone())` just to satisfy the compiler quickly.
+- Prefer `func(data)` to transfer ownership. Refactor the flow if necessary so
+  the move happens naturally (e.g., stop using the variable earlier).
+- Clone is acceptable if the original is strictly needed in a later execution
+  path.
+
+## 4. Fail Fast in Parsing logic
+
+Don't swallow errors in a fallback chain. If a user attempts a specific format
+(e.g., `key = "value"`) but makes a syntax error, return the error immediately
+rather than silently failing and trying the next option.
+
+🛑 Bad (Swallowing Errors):
+
+```rust
+// If parsing fails, we ignore it and return None, confusing the user
+match parse_complex(attr) {
+    Ok(val) => return Some(val),
+    Err(_) => return None,
+}
+```
+
+✅ Good (Propagate Errors):
+
+```rust
+// If the user clearly tried to use this format but failed, tell them why.
+let val = parse_complex(attr)?;
+return Some(val);
+```
+
+## 5. Prefer combinators over explicit matching for assignment
+
+When transforming `Option` or `Result` types for a variable assignment, prefer
+functional combinators (`map`, `and_then`, `unwrap_or_else`) over multi-line
+`if let` or `match` blocks.
+
+✅ Good (Combinators):
+
+```rust
+let display_name = config
+    .display_name
+    .as_ref()
+    .map_or_else(|| config.default_name.clone(), |s| s.to_string());
+```
+
+## 6. General Writing Principles
+
+All code and comments must follow these general writing principles:
+
+1. Be practical over promotional. Focus on what users can do, not on marketing
+   language like "powerful," "revolutionary," or "best-in-class."
+2. Be honest about limitations. When a feature is missing or limited, say so
+   directly and provide workarounds or alternative workflows.
+3. Be direct and concise. Use short sentences. Get to the point. Developers are
+   scanning, not reading novels.
+4. Use second person. Address the reader as "you." Avoid "the user" or "one."
+5. Use present tense. "The application opens the file" not "The application will
+   open the file."
+6. Avoid superlatives without substance ("incredibly fast," "seamlessly
+   integrated").
+7. Avoid hedging language ("simply," "just," "easily")—if something is simple,
+   the instructions will show it.
+8. Avoid apologetic tone for missing features—state the limitation and move on.
+9. Avoid comparisons that disparage other tools—be factual, not competitive.
+10. Avoid meta-commentary about honesty ("the honest take is...", "to be
+    frank...", "honestly...").
+11. Avoid filler words ("entirely," "certainly," "deeply," "definitely,"
+    "actually")—these add nothing.
+12. Use simple, direct English. Avoid complex words and academic phrasing.
+    Examples: "multiple concerns simultaneously" -> "several concerns",
+    "unnecessary coupling" -> "extra dependencies", "convoluted" -> "complex",
+    "facilitate" -> "help" or "enable", "in order to" -> "to".
+13. Use active voice. "Add feature" not "Feature was added."
+14. Keep sentences short and to the point.
+
+## 7. Use descriptive names for all variables
+
+Use descriptive names for all variables instead of abbreviations. This improves
+code readability and maintainability, especially for new contributors.
+
+Common abbreviations to avoid:
+
+- `ty` -> use `type_name` or `typ`
+- `msg` -> use `message` or `msg_body`
+- `req` -> use `request`
+- `resp` -> use `response`
+- `arg` -> use `argument` or `arg_value`
+- `ctx` -> use `context`
+- `val` -> use `value`
+- `cfg` -> use `config`
+- `str` -> use `string`
+- `num` -> use `number`
+- `idx` -> use `index`
+- `len` -> use `length`
+- `cnt` -> use `count`
+- `res` -> use `result`
+
+🛑 Bad (Abbreviations):
+
+```rust
+fn process(ty: Type, req: Request) -> Response {
+    let msg = req.message;
+    let ctx = req.context;
+    let cfg = req.config;
+    let val = req.value;
+
+    // ... implementation
+}
+```
+
+✅ Good (Descriptive):
+
+```rust
+fn process(type_name: Type, request: Request) -> Response {
+    let message = request.message;
+    let context = request.context;
+    let config = request.config;
+    let value = request.value;
+
+    // ... implementation
+}
+```
+
+## 8. Prefer self-contained functions with clear data flow
+
+Functions should manage their own dependencies and generate what they need
+internally rather than receiving data through unnecessary intermediate steps.
+Each function should have a single, clear responsibility and be self-contained
+where possible. This improves encapsulation, simplifies APIs, and creates
+clearer data flow.
+
+Principles:
+
+- Functions should access data directly from their primary parameters rather
+  than receiving redundant or derivable values as separate arguments
+- If a value is only used by one function, generate it inside that function
+  instead of passing it from the caller
+- Avoid chaining function calls where an intermediate result exists only to be
+  passed to the next function
+- Split functions that return tuples into focused single-purpose functions
+- Name functions that return `TokenStream` with the `_code` suffix for
+  consistency
+
+🛑 Bad (Unnecessary Parameter Passing):
+
+```rust
+// call_expr is only used by generate_closure_body, but it's created
+// in the caller and passed through as a parameter
+let call_expr = generate_call_expr(&metadata, &metadata.params);
+let closure_body = generate_closure_body(&metadata, &call_expr);
+
+fn generate_call_expr(
+    metadata: &method::Metadata,
+    params: &method::ParamKind,  // Redundant: metadata already contains params
+) -> TokenStream {
+    // ...
+}
+
+fn generate_closure_body(
+    metadata: &method::Metadata,
+    call_expr: &TokenStream,  // Unnecessary: could be generated internally
+) -> TokenStream {
+    // ...
+}
+```
+
+✅ **Good (Self-Contained Functions):**
+
+```rust
+// Each function manages its own dependencies
+let closure_body = generate_closure_body_code(&metadata);
+
+fn generate_closure_body_code(metadata: &method::Metadata) -> TokenStream {
+    let call_expr = generate_call_expr_code(metadata);  // Generated internally
+    match &metadata.returns {
+        ReturnKind::Infallible(_) => quote! { Ok(#call_expr) },
+        ReturnKind::Fallible { .. } => quote! { #call_expr },
+    }
+}
+
+fn generate_call_expr_code(metadata: &method::Metadata) -> TokenStream {
+    let call_args = generate_call_args_code(&metadata.params);  // Direct access
+    match metadata.receiver {
+        ReceiverKind::Static => quote! { Self::#name(#call_args) },
+        _ => quote! { self.#name(#call_args) },
+    }
+}
+```
+
+✅ **Good (Split Tuple Returns):**
+
+```rust
+// Instead of returning a tuple, split into focused functions
+// Bad: let (params_type, call_args) = generate_param_code(&params);
+// Good:
+let params_type = generate_params_type_code(&params);
+let call_args = generate_call_args_code(&params);  // Used only where needed
+```
+
+This approach provides:
+
+- **Encapsulation**: Functions handle generating what they need internally
+- **Simpler API**: Fewer parameters and intermediate variables
+- **Better cohesion**: Each function is self-contained and focused
+- **Clearer data flow**: Linear, easy-to-follow dependency chain
+- **Easier testing**: Functions can be tested independently
+
+## 9. Use module-prefixed function calls for internal modules
+
+All internal modules should be consumed using module-prefixed function calls
+rather than importing individual functions. This makes the origin of functions
+clear and improves code readability by explicitly showing which module provides
+each function.
+
+Use `use crate::module_name;` then call functions as `module_name::function()`.
+
+🛑 Bad (Individual imports):
+
+```rust
+use crate::cargo::{nightly, rustdoc};
+
+nightly()?;
+rustdoc(&crate_name)?;
+```
+
+✅ Good (Module prefix):
+
+```rust
+use crate::cargo;
+
+cargo::nightly()?;
+cargo::rustdoc(&crate_name)?;
+```
+
+Function names should be intuitive when used as `module_name::function`. The
+function name should clearly indicate what it does, and when combined with the
+module name, should describe the operation intuitively.
+
+For example, `cargo::rustdoc` implies the function executes the `cargo rustdoc`
+CLI command under the hood. This naming convention makes code self-documenting
+and easy to understand at a glance.
