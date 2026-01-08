@@ -19,17 +19,17 @@ cargo txt --help
 
 ## Commands
 
-### open
+### show
 
-Open and view crate documentation:
+Show and view crate documentation:
 
 ```shell
-cargo txt open <ITEM_PATH>
+cargo txt show <ITEM_PATH>
 ```
 
 **Arguments:**
 
-- `<ITEM_PATH>` - Item path to open (required). Can be:
+- `<ITEM_PATH>` - Item path to show (required). Can be:
     - Crate name only (e.g., `serde`): displays master index of all items
     - Full item path (e.g., `serde::Error`, `serde::ser::StdError`): displays
       specific item documentation
@@ -39,14 +39,14 @@ cargo txt open <ITEM_PATH>
 View all items in a crate:
 
 ```shell
-cargo txt open serde
+cargo txt show serde
 ```
 
 View specific item documentation:
 
 ```shell
-cargo txt open serde::Error
-cargo txt open serde::ser::StdError
+cargo txt show serde::Error
+cargo txt show serde::ser::StdError
 ```
 
 **How It Works:**
@@ -61,7 +61,7 @@ cargo txt open serde::ser::StdError
 
 **Auto-Build:**
 
-The open command automatically builds documentation if it doesn't exist. You
+The show command automatically builds documentation if it doesn't exist. You
 don't need to run `cargo txt build` separately. It checks for the existence of
 `target/docmd/<crate>/all.md` and triggers a build if the file is missing.
 
@@ -163,7 +163,7 @@ Rust paths and HTML file paths. For example:
 - `serde::Error` -> `struct.Error.html`
 - `serde::ser::StdError` -> `ser/trait.StdError.html`
 
-These mappings are used by the open command to quickly resolve item paths to
+These mappings are used by the show command to quickly resolve item paths to
 markdown files.
 
 ## Markdown Output Format
@@ -312,5 +312,5 @@ Caused by:
 - **Build command**: Generates comprehensive markdown documentation including
   `all.md`, `index.md`, and individual item files. The conversion handles common
   HTML elements but may not cover all edge cases in rustdoc HTML.
-- **Open command**: Fully implemented. Displays crate documentation to stdout
+- **Show command**: Fully implemented. Displays crate documentation to stdout
   with auto-build functionality.

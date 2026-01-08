@@ -20,8 +20,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     /// Errors that occur during the build process
     Build(BuildError),
-    /// Errors that occur during the open process
-    Open(OpenError),
+    /// Errors that occur during the show process
+    Show(ShowError),
     /// CSS selector failed to parse
     HtmlSelectorParseFailed { selector: String, error: String },
     /// Required HTML element not found
@@ -32,7 +32,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::Build(err) => write!(f, "{}", err),
-            Error::Open(err) => write!(f, "{}", err),
+            Error::Show(err) => write!(f, "{}", err),
             Error::HtmlSelectorParseFailed { selector, error } => {
                 write!(f, "Failed to parse selector '{}': {}", selector, error)
             }
@@ -57,9 +57,9 @@ impl From<BuildError> for Error {
     }
 }
 
-impl From<OpenError> for Error {
-    fn from(err: OpenError) -> Self {
-        Error::Open(err)
+impl From<ShowError> for Error {
+    fn from(err: ShowError) -> Self {
+        Error::Show(err)
     }
 }
 
@@ -184,11 +184,11 @@ impl fmt::Debug for BuildError {
     }
 }
 
-/// Errors that occur during the open command.
+/// Errors that occur during the show command.
 ///
 /// These errors cover path resolution, file reading, and item lookup
 /// operations for displaying documentation.
-pub enum OpenError {
+pub enum ShowError {
     /// Documentation index file (all.html) not found
     DocIndexNotFound {
         path: PathBuf,
@@ -208,10 +208,10 @@ pub enum OpenError {
     },
 }
 
-impl fmt::Display for OpenError {
+impl fmt::Display for ShowError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OpenError::DocIndexNotFound { path, source } => {
+            ShowError::DocIndexNotFound { path, source } => {
                 write!(
                     f,
                     "Documentation index file '{}' not found: {}",
@@ -219,14 +219,14 @@ impl fmt::Display for OpenError {
                     source
                 )
             }
-            OpenError::InvalidItemPath { item_path } => {
+            ShowError::InvalidItemPath { item_path } => {
                 write!(
                     f,
                     "Invalid item path '{}'. Expected format: <crate> or <crate>::<item> (e.g., 'serde' or 'serde::Error').",
                     item_path
                 )
             }
-            OpenError::MarkdownNotFound { path, source } => {
+            ShowError::MarkdownNotFound { path, source } => {
                 write!(
                     f,
                     "Markdown file '{}' not found: {}",
@@ -234,7 +234,7 @@ impl fmt::Display for OpenError {
                     source
                 )
             }
-            OpenError::ItemPathResolutionFailed {
+            ShowError::ItemPathResolutionFailed {
                 item_path,
                 attempted_paths,
             } => {
@@ -253,17 +253,17 @@ impl fmt::Display for OpenError {
     }
 }
 
-impl std::error::Error for OpenError {
+impl std::error::Error for ShowError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            OpenError::DocIndexNotFound { source, .. } => Some(source.as_ref()),
-            OpenError::MarkdownNotFound { source, .. } => Some(source.as_ref()),
+            ShowError::DocIndexNotFound { source, .. } => Some(source.as_ref()),
+            ShowError::MarkdownNotFound { source, .. } => Some(source.as_ref()),
             _ => None,
         }
     }
 }
 
-impl fmt::Debug for OpenError {
+impl fmt::Debug for ShowError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }

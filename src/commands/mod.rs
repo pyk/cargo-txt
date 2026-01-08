@@ -4,7 +4,7 @@
 //! Commands are organized by functionality and can be called directly from main.
 
 pub mod build;
-pub mod open;
+pub mod show;
 
 pub use build::build;
-pub use open::open;
+pub use show::show;

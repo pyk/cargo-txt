@@ -2,7 +2,7 @@
   <a href="https://pyk.sh">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://github.com/pyk/cargo-txt/blob/main/.github/logo-dark.svg">
-      <img alt="pyk/cargo-txt logo" src="https://github.com/pyk/cargo-txt/blob/main/.github/logo-light.svg">
+      <img alt="pyk/cargo-txt logo" src="https://github.com/pyk/cargo-txt/blob/main/.github/logo-light.svg" height="64" width="auto">
     </picture>
   </a>
 </p>
@@ -21,7 +21,8 @@
 
 > [!WARNING]
 >
-> `cargo-txt` is in early active development, expect changes on every release.
+> `cargo-txt` is in early active development. Expect breaking changes on every
+> release.
 
 `cargo-txt` is a cargo subcommand that your LLM or Coding Agents can use to
 access the crate documentation locally.
@@ -35,32 +36,59 @@ cargo install txt
 Add this instruction to your coding agent:
 
 ```markdown
-Use `cargo txt open <crate-item>` to access the crate documentation.
+Use `cargo txt show <crate-item>` to access the crate documentation.
 
 For example:
 
-- Access serde documentation index: `cargo txt open serde`
-- Access `serde::Deserialize` trait doc: `cargo txt open serde::Deserialize`
+- Access serde documentation index: `cargo txt show serde`
+- Access `serde::Deserialize` trait doc: `cargo txt show serde::Deserialize`
 ```
+
+## Why I'm building this
+
+I work with [coding agents](https://zed.dev/agentic-engineering) daily now, and
+I constantly hit the same wall. The agents try to help me write code, but they
+keep making mistakes because they're working from outdated or incomplete
+information in their training data. They hallucinate APIs that don't exist, miss
+important details, or suggest deprecated methods.
+
+The problem gets worse with complex crates. An agent might think it knows a
+crate's API, but it's working with knowledge that's months or years out of date.
+This leads to wasted time debugging code that never had a chance of working
+correctly.
+
+I needed a way to give agents access to the actual documentation, the real,
+current docs locally. Not a cached version, not training data, but the latest
+documentation.
+
+That's why I built `cargo-txt`. It converts `cargo doc` HTML to markdown so
+coding agents can read and understand crate documentation directly from my local
+machine. No hallucinations, no outdated info, accurate, comprehensive
+documentation that matches exactly what I'm working with.
+
+Instead of agents guessing or working from stale knowledge, they now have full
+access to the complete documentation. Debugging becomes faster, code is more
+accurate, and the frustrating back-and-forth cycle of trial and error reduced.
 
 ## Features
 
-- Generate markdown from rustdoc HTML
-- Documentation browsing at crate and item level
+- Simple command-line interface for coding agent.
+- Local documentation access in markdown format.
+- Crate and item-level browsing for targeted access, reducing the token usage.
 
 ## Usage
 
-### Open Command
+### Show Command
 
-Open and view crate documentation:
+Show and view crate documentation:
 
 ```shell
-cargo txt open <ITEM_PATH>
+cargo txt show <ITEM_PATH>
 ```
 
 **Arguments:**
 
-- `<ITEM_PATH>` - Item path to open (required). Can be:
+- `<ITEM_PATH>` - Item path to show (required). Can be:
     - Crate name only (e.g., `serde`): displays master index of all items
     - Full item path (e.g., `serde::Error`, `serde::ser::StdError`): displays
       specific item documentation
@@ -70,14 +98,14 @@ cargo txt open <ITEM_PATH>
 View all items in a crate:
 
 ```shell
-cargo txt open serde
+cargo txt show serde
 ```
 
 View specific item documentation:
 
 ```shell
-cargo txt open serde::Error
-cargo txt open serde::ser::StdError
+cargo txt show serde::Error
+cargo txt show serde::ser::StdError
 ```
 
 **How It Works:**
@@ -92,7 +120,7 @@ cargo txt open serde::ser::StdError
 
 **Auto-Build:**
 
-The open command automatically builds documentation if it doesn't exist. You
+The show command automatically builds documentation if it doesn't exist. You
 don't need to run `cargo txt build` separately.
 
 ### Verbosity
@@ -197,7 +225,7 @@ Only installed dependencies can be built. Add the crate to Cargo.toml as a depen
 
 ## Current Status
 
-- **Open command**: Fully implemented. Displays crate documentation to stdout.
+- **Show command**: Fully implemented. Displays crate documentation to stdout.
   Opens master index (`all.md`) for crate-level requests or specific item
   documentation for full item paths. Auto-builds documentation when needed.
 - **Build command**: Fully implemented. Generates HTML documentation using

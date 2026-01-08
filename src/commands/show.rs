@@ -1,6 +1,6 @@
-//! Open command implementation.
+//! Show command implementation.
 //!
-//! This module provides the open command which displays crate documentation
+//! This module provides the show command which displays crate documentation
 //! to stdout. Users can view either the entire crate documentation (all.md)
 //! or specific items by providing an item path.
 
@@ -18,12 +18,12 @@ struct ParsedItemPath {
     item: Option<String>,
 }
 
-/// Open and display crate documentation.
+/// Show and display crate documentation.
 ///
 /// This function parses the item path, ensures documentation is built,
 /// resolves the appropriate markdown file, and prints its contents to stdout.
-pub fn open(item_path: String) -> error::Result<()> {
-    debug!("Open command: item_path={}", item_path);
+pub fn show(item_path: String) -> error::Result<()> {
+    debug!("Show command: item_path={}", item_path);
 
     let parsed = parse_item_path(&item_path)?;
     trace!(
@@ -37,7 +37,7 @@ pub fn open(item_path: String) -> error::Result<()> {
     debug!("Resolved markdown path: {:?}", markdown_path);
 
     let markdown_content = std::fs::read_to_string(&markdown_path).map_err(|error| {
-        error::OpenError::MarkdownNotFound {
+        error::ShowError::MarkdownNotFound {
             path: markdown_path.clone(),
             source: Box::new(error),
         }
@@ -57,7 +57,7 @@ fn parse_item_path(item_path: &str) -> error::Result<ParsedItemPath> {
     let mut parts = item_path.split("::");
 
     let crate_name = parts.next().filter(|s| !s.is_empty()).ok_or_else(|| {
-        error::OpenError::InvalidItemPath {
+        error::ShowError::InvalidItemPath {
             item_path: item_path.to_string(),
         }
     })?;
@@ -106,7 +106,7 @@ fn resolve_markdown_path(parsed: &ParsedItemPath) -> error::Result<PathBuf> {
     let all_html_path = html_dir.join("all.html");
 
     let all_html_content = std::fs::read_to_string(&all_html_path).map_err(|error| {
-        error::OpenError::DocIndexNotFound {
+        error::ShowError::DocIndexNotFound {
             path: all_html_path.clone(),
             source: Box::new(error),
         }
@@ -120,7 +120,7 @@ fn resolve_markdown_path(parsed: &ParsedItemPath) -> error::Result<PathBuf> {
     trace!("Looking up item path: {}", full_item_path);
 
     let html_path = item_mappings.get(&full_item_path).ok_or_else(|| {
-        error::OpenError::ItemPathResolutionFailed {
+        error::ShowError::ItemPathResolutionFailed {
             item_path: full_item_path.clone(),
             attempted_paths: vec![],
         }
@@ -204,7 +204,7 @@ mod tests {
         let result = parse_item_path("::invalid");
         assert!(result.is_err());
         match result.unwrap_err() {
-            error::Error::Open(error::OpenError::InvalidItemPath { item_path }) => {
+            error::Error::Show(error::ShowError::InvalidItemPath { item_path }) => {
                 assert_eq!(item_path, "::invalid");
             }
             _ => panic!("Expected InvalidItemPath error"),
@@ -216,7 +216,7 @@ mod tests {
         let result = parse_item_path("");
         assert!(result.is_err());
         match result.unwrap_err() {
-            error::Error::Open(error::OpenError::InvalidItemPath { item_path }) => {
+            error::Error::Show(error::ShowError::InvalidItemPath { item_path }) => {
                 assert_eq!(item_path, "");
             }
             _ => panic!("Expected InvalidItemPath error"),
@@ -228,7 +228,7 @@ mod tests {
         let result = parse_item_path("::");
         assert!(result.is_err());
         match result.unwrap_err() {
-            error::Error::Open(error::OpenError::InvalidItemPath { item_path }) => {
+            error::Error::Show(error::ShowError::InvalidItemPath { item_path }) => {
                 assert_eq!(item_path, "::");
             }
             _ => panic!("Expected InvalidItemPath error"),
