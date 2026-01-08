@@ -3,8 +3,8 @@
 //! This module contains all subcommand implementations, each in its own module.
 //! Commands are organized by functionality and can be called directly from main.
 
-pub mod browse;
 pub mod build;
+pub mod open;
 
-pub use browse::browse;
 pub use build::build;
+pub use open::open;

@@ -19,6 +19,73 @@ cargo docmd --help
 
 ## Commands
 
+### open
+
+Open and view crate documentation:
+
+```shell
+cargo docmd open <ITEM_PATH>
+```
+
+**Arguments:**
+
+- `<ITEM_PATH>` - Item path to open (required). Can be:
+    - Crate name only (e.g., `serde`): displays master index of all items
+    - Full item path (e.g., `serde::Error`, `serde::ser::StdError`): displays
+      specific item documentation
+
+**Examples:**
+
+View all items in a crate:
+
+```shell
+cargo docmd open serde
+```
+
+View specific item documentation:
+
+```shell
+cargo docmd open serde::Error
+cargo docmd open serde::ser::StdError
+```
+
+**How It Works:**
+
+1. Parses the item path to extract crate name and optional item
+2. Checks if markdown documentation exists (auto-builds if needed)
+3. If item path is just a crate name: reads and displays `all.md` (master index)
+4. If item path includes modules/items:
+    - Reads `all.html` to extract item mappings
+    - Looks up the exact HTML file for the requested item
+    - Converts HTML path to markdown path and displays contents
+
+**Auto-Build:**
+
+The open command automatically builds documentation if it doesn't exist. You
+don't need to run `cargo docmd build` separately. It checks for the existence of
+`target/docmd/<crate>/all.md` and triggers a build if the file is missing.
+
+**Error Handling:**
+
+If you request a crate that is not installed, you will see an error message:
+
+```
+Error: Crate 'random-crate' is not an installed dependency.
+
+Available crates: clap, rustdoc-types, serde, serde_json, tempfile
+
+Only installed dependencies can be built. Add the crate to Cargo.toml as a dependency first.
+```
+
+If you request an item that doesn't exist, you will see:
+
+```
+Error: Could not resolve item path 'serde::NonExistent'.
+
+Attempted paths:
+  - /path/to/target/docmd/serde/struct.NonExistent.md
+```
+
 ### build
 
 Generate markdown documentation for a crate:
@@ -43,12 +110,19 @@ Output:
 
 ```
 Generated markdown: /path/to/project/target/docmd/serde/index.md
+Generated markdown: /path/to/project/target/docmd/serde/all.md
+Generated markdown for 42 items
 ```
 
 **Output Location:**
 
-Markdown files are placed in `target/docmd/<crate>/index.md`. The target
-directory is determined by cargo metadata.
+Markdown files are placed in `target/docmd/<crate>/`. The target directory is
+determined by cargo metadata. The following files are generated:
+
+- `all.md` - Master index of all items (from `all.html`)
+- `index.md` - Crate overview (from `index.html`)
+- Individual item markdown files (e.g., `struct.Error.md`, `trait.Serialize.md`)
+  with preserved directory structure
 
 **Feature Detection:**
 
@@ -83,47 +157,25 @@ Only installed dependencies can be built. Add the crate to Cargo.toml as a depen
 7. Converts HTML to markdown using the `scraper` crate
 8. Creates the output directory `target/docmd/<crate>/` if needed
 9. Writes the markdown content to `target/docmd/<crate>/index.md`
+10. Reads the `all.html` file and converts it to `all.md`
+11. Extracts item mappings from `all.html` (full Rust paths to HTML file paths)
+12. Generates markdown for each individual item, preserving directory structure
 
-### browse
+**Item Mapping:**
 
-Browse crate documentation:
+During build, the command parses `all.html` to extract mappings between full
+Rust paths and HTML file paths. For example:
 
-```shell
-cargo docmd browse <CRATE>
-```
+- `serde::Error` -> `struct.Error.html`
+- `serde::ser::StdError` -> `ser/trait.StdError.html`
 
-**Arguments:**
-
-- `<CRATE>` - Crate name to browse (required)
-
-**Options:**
-
-- `--item <ITEM>` (or `-i`) - Display documentation for a specific item
-  (optional)
-
-**Examples:**
-
-Browse entire crate documentation:
-
-```shell
-cargo docmd browse serde
-```
-
-Display specific item documentation:
-
-```shell
-cargo docmd browse serde --item Serialize
-```
-
-**Current Status:**
-
-The browse command accepts parameters but does not display documentation yet.
-Interactive browsing will be implemented in a future release.
+These mappings are used by the open command to quickly resolve item paths to
+markdown files.
 
 ## Markdown Output Format
 
-The build command generates a single `index.md` file containing the entire crate
-documentation.
+The build command generates comprehensive markdown documentation including a
+master index and individual item files.
 
 ### Output Structure
 
@@ -131,7 +183,12 @@ documentation.
 target/
 └── docmd/
     └── <crate>/
-        └── index.md
+        ├── all.md                   # Master index of all items
+        ├── index.md                 # Crate overview
+        ├── struct.Error.md          # Individual item files
+        ├── trait.Serialize.md
+        └── ser/
+            └── trait.StdError.md   # Nested modules preserved
 ```
 
 ### HTML to Markdown Conversion
@@ -258,8 +315,8 @@ Caused by:
 
 ## Current Limitations
 
-- **Build command**: Generates a single markdown file containing all
-  documentation from the `<main>` element. The conversion handles common HTML
-  elements but may not cover all edge cases in rustdoc HTML.
-- **Browse command**: Accepts crate name and optional item parameter but does
-  not display documentation yet.
+- **Build command**: Generates comprehensive markdown documentation including
+  `all.md`, `index.md`, and individual item files. The conversion handles common
+  HTML elements but may not cover all edge cases in rustdoc HTML.
+- **Open command**: Fully implemented. Displays crate documentation to stdout
+  with auto-build functionality.

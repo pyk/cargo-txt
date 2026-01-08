@@ -13,17 +13,18 @@ use crate::error;
 /// element, and converts it to markdown format.
 pub fn convert(html: &str) -> error::Result<String> {
     let document = Html::parse_document(html);
-    let selector =
-        Selector::parse("main").map_err(|e| error::HtmlExtractError::SelectorParseFailed {
-            selector: "main".to_string(),
-            error: e.to_string(),
-        })?;
-
-    let main_element = document.select(&selector).next().ok_or_else(|| {
-        error::HtmlExtractError::ElementNotFound {
-            selector: "main".to_string(),
-        }
+    let selector = Selector::parse("main").map_err(|e| error::Error::HtmlSelectorParseFailed {
+        selector: "main".to_string(),
+        error: e.to_string(),
     })?;
+
+    let main_element =
+        document
+            .select(&selector)
+            .next()
+            .ok_or_else(|| error::Error::HtmlElementNotFound {
+                selector: "main".to_string(),
+            })?;
 
     let mut markdown = String::new();
     convert_node(main_element, &mut markdown);

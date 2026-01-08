@@ -10,7 +10,7 @@ mod html2md;
 
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
-use commands::{browse, build};
+use commands::{build, open};
 
 /// A cargo doc for coding agents
 #[derive(Parser)]
@@ -35,15 +35,11 @@ enum Command {
         crate_name: String,
     },
 
-    /// Browse crate documentation.
-    Browse {
-        /// Crate name to browse
-        #[arg(value_name = "CRATE")]
-        crate_name: String,
-
-        /// Optional specific item to display
-        #[arg(short, long, value_name = "ITEM")]
-        item: Option<String>,
+    /// Open and display crate documentation.
+    Open {
+        /// Item path (e.g., 'serde', 'serde::Error', 'serde::ser::StdError')
+        #[arg(value_name = "ITEM")]
+        item_path: String,
     },
 }
 
@@ -56,7 +52,7 @@ fn main() -> error::Result<()> {
 
     match args.command {
         Command::Build { crate_name } => build(crate_name)?,
-        Command::Browse { crate_name, item } => browse(crate_name, item)?,
+        Command::Open { item_path } => open(item_path)?,
     }
 
     Ok(())

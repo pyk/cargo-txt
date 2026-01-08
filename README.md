@@ -27,19 +27,70 @@ cargo docmd --help
 
 ## Quick Start
 
+Open and view crate documentation:
+
+```shell
+cargo docmd open serde
+```
+
+View specific item documentation:
+
+```shell
+cargo docmd open serde::Error
+```
+
 Generate markdown documentation:
 
 ```shell
 cargo docmd build serde
 ```
 
-Browse crate documentation:
+## Usage
+
+### Open Command
+
+Open and view crate documentation:
 
 ```shell
-cargo docmd browse serde
+cargo docmd open <ITEM_PATH>
 ```
 
-## Usage
+**Arguments:**
+
+- `<ITEM_PATH>` - Item path to open (required). Can be:
+    - Crate name only (e.g., `serde`): displays master index of all items
+    - Full item path (e.g., `serde::Error`, `serde::ser::StdError`): displays
+      specific item documentation
+
+**Examples:**
+
+View all items in a crate:
+
+```shell
+cargo docmd open serde
+```
+
+View specific item documentation:
+
+```shell
+cargo docmd open serde::Error
+cargo docmd open serde::ser::StdError
+```
+
+**How It Works:**
+
+1. Parses the item path to extract crate name and optional item
+2. Checks if markdown documentation exists (auto-builds if needed)
+3. If item path is just a crate name: reads and displays `all.md` (master index)
+4. If item path includes modules/items:
+    - Reads `all.html` to extract item mappings
+    - Looks up the exact HTML file for the requested item
+    - Converts HTML path to markdown path and displays contents
+
+**Auto-Build:**
+
+The open command automatically builds documentation if it doesn't exist. You
+don't need to run `cargo docmd build` separately.
 
 ### Verbosity
 
@@ -160,41 +211,17 @@ clap = { version = "4.5", features = ["derive"] }
 Running `cargo docmd build clap` will automatically use the `derive` feature
 when generating documentation.
 
-### Browse Command
-
-Browse crate documentation:
-
-```shell
-cargo docmd browse <CRATE>
-```
-
-Arguments:
-
-- `<CRATE>` - Crate name to browse (required)
-
-Options:
-
-- `-i, --item <ITEM>` - Optional specific item to display
-
-Examples:
-
-```shell
-# Browse entire crate
-cargo docmd browse serde
-
-# Browse specific item
-cargo docmd browse serde --item Serialize
-```
-
 ## Current Status
 
+- **Open command**: Fully implemented. Displays crate documentation to stdout.
+  Opens master index (`all.md`) for crate-level requests or specific item
+  documentation for full item paths. Auto-builds documentation when needed.
 - **Build command**: Fully implemented. Generates HTML documentation using
-  stable `cargo doc`, extracts the `<main>` element from `index.html`, converts
-  it to markdown using the `scraper` crate, and writes a single `index.md` file
-  to `target/docmd/<crate>/`. The conversion handles headings, paragraphs, code
-  blocks, links, lists, and other common HTML elements.
-- **Browse command**: Placeholder implementation. Accepts crate name and item
-  parameters but does not display documentation yet.
+  stable `cargo doc`, converts HTML files to markdown, and writes:
+    - `all.md` - Master index of all items from `all.html`
+    - `index.md` - Crate overview from `index.html`
+    - Individual item markdown files (e.g., `struct.Error.md`,
+      `trait.Serialize.md`)
 
 ## Development
 
