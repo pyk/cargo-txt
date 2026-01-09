@@ -30,7 +30,7 @@ When implementing a plan:
    README.md.
 7. Use the thinking tool.
 8. Do not use git restore commands (can cause data loss).
-9. Use `cargo test` to run tests and `rust-check` after changes.
+9. Use `cargo test` to run tests and `rust-lint` to check coding conventions.
 10. Review and update the plan checklist after implementation.
 11. Use `cargo install --path .` before running `cargo txt`.
 
@@ -49,7 +49,7 @@ When reviewing staged changes:
    `.zed/agent/guidelines/readme.md` strictly.
 7. Use the thinking tool.
 8. Follow the instructions in `.zed/agent/instructions/review-changes.md`.
-9. Use `cargo test` to run tests and `rust-check` to verify changes.
+9. Use `cargo test` to run tests and `rust-lint` to verify changes.
 
 # Git Commit Mode
 
