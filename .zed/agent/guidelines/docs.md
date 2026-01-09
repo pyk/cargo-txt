@@ -1,7 +1,8 @@
 # DOCS Writing Guidelines
 
-**CRITICAL**: Follow these strict writing guidelines for all documentation files
-(DOCS.md).
+> [!IMPORTANT]
+>
+> Follow these guidelines strictly
 
 1. Focus on user needs. Answer user questions and help them accomplish tasks.
 2. Structure for readability. Use headings, lists, and code examples to break up

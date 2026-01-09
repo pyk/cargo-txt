@@ -1,6 +1,8 @@
 # README Writing Guidelines
 
-**CRITICAL**: Follow these strict writing guidelines for all README files.
+> [!IMPORTANT]
+>
+> Follow these guidelines strictly
 
 1. Start with a clear description of what the project does.
 2. Provide quick start instructions that get users running immediately.
