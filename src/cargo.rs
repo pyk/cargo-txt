@@ -3,10 +3,11 @@
 //! This module provides functions for executing cargo doc commands
 //! with proper error handling and HTML generation validation.
 
+use anyhow::{Context, Result, bail};
 use log::{debug, trace};
 use serde::Deserialize;
-
-use crate::error;
+use std::path::PathBuf;
+use std::process::Command;
 
 /// Cargo metadata output structure.
 ///
@@ -34,24 +35,20 @@ pub struct Dependency {
 ///
 /// This function executes `cargo metadata --no-deps --format-version 1`
 /// and parses the JSON output into a Metadata struct.
-pub fn metadata() -> error::Result<Metadata> {
-    let output = std::process::Command::new("cargo")
+pub fn metadata() -> Result<Metadata> {
+    let output = Command::new("cargo")
         .args(["metadata", "--no-deps", "--format-version", "1"])
         .output()
-        .map_err(|e| error::BuildError::CargoMetadataExecFailed {
-            output: e.to_string(),
-        })?;
+        .context("failed to execute cargo metadata command")?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        return Err(error::BuildError::CargoMetadataExecFailed { output: stderr }.into());
+        bail!("failed to execute cargo metadata command:\n{}", stderr);
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let metadata: Metadata =
-        serde_json::from_str(&stdout).map_err(|e| error::BuildError::CargoMetadataExecFailed {
-            output: format!("Failed to parse metadata JSON: {}", e),
-        })?;
+        serde_json::from_str(&stdout).context("failed to parse cargo metadata JSON")?;
 
     Ok(metadata)
 }
@@ -61,18 +58,16 @@ pub fn metadata() -> error::Result<Metadata> {
 /// This function executes `cargo doc --package <crate> --no-deps`,
 /// parses the output to find the generated directory, and returns the path
 /// to the HTML documentation directory.
-pub fn doc(crate_name: &str) -> error::Result<std::path::PathBuf> {
-    let mut cmd = std::process::Command::new("cargo");
+pub fn doc(crate_name: &str) -> Result<PathBuf> {
+    let mut cmd = Command::new("cargo");
     cmd.args(["doc", "--package", crate_name, "--no-deps"]);
 
     debug!("Executing: cargo doc --package {} --no-deps", crate_name);
 
-    let output = cmd
-        .output()
-        .map_err(|e| error::BuildError::CargoDocExecFailed {
-            crate_name: crate_name.to_string(),
-            output: e.to_string(),
-        })?;
+    let output = cmd.output().context(format!(
+        "failed to execute cargo doc for crate '{}'",
+        crate_name
+    ))?;
 
     trace!("Exit code: {}", output.status);
     trace!("stdout len: {}", output.stdout.len());
@@ -81,11 +76,11 @@ pub fn doc(crate_name: &str) -> error::Result<std::path::PathBuf> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
         debug!("stderr: {}", stderr);
-        return Err(error::BuildError::CargoDocExecFailed {
-            crate_name: crate_name.to_string(),
-            output: stderr,
-        }
-        .into());
+        bail!(
+            "failed to execute cargo doc for crate '{}':\n{}",
+            crate_name,
+            stderr
+        );
     }
 
     // Parse stderr to find generated directory path (cargo doc writes to stderr)
@@ -101,38 +96,45 @@ pub fn doc(crate_name: &str) -> error::Result<std::path::PathBuf> {
 /// "Generated /path/to/crate/index.html".
 ///
 /// Returns the parent directory of the generated index.html file.
-fn doc_output_dir(stdout: &str) -> error::Result<std::path::PathBuf> {
-    let generated_line = stdout
+fn doc_output_dir(stdout: &str) -> Result<PathBuf> {
+    let generated_line = match stdout
         .lines()
         .map(|line| line.trim())
         .find(|line| line.starts_with("Generated "))
         .and_then(|line| line.strip_prefix("Generated "))
         .map(|s| s.trim())
-        .ok_or_else(|| {
+    {
+        Some(line) => line,
+        None => {
             // Create a preview of the output for debugging
             let output_preview = if stdout.len() > 500 {
                 format!("{}...", &stdout[..500])
             } else {
                 stdout.to_string()
             };
-            error::BuildError::CargoDocOutputParseFailed { output_preview }
-        })?;
-
-    let html_path = std::path::PathBuf::from(generated_line);
-    Ok(html_path.parent().map(|p| p.to_path_buf()).ok_or_else(|| {
-        // Create a preview of the generated line for debugging
-        let line_preview = if generated_line.len() > 200 {
-            format!("{}...", &generated_line[..200])
-        } else {
-            generated_line.to_string()
-        };
-        error::BuildError::CargoDocOutputParseFailed {
-            output_preview: format!(
-                "Generated line found but has no parent directory: {}",
-                line_preview
-            ),
+            bail!(
+                "failed to parse cargo doc output - could not find 'Generated' line. Output preview:\n{}",
+                output_preview
+            )
         }
-    })?)
+    };
+
+    let html_path = PathBuf::from(generated_line);
+    match html_path.parent() {
+        Some(parent) => Ok(parent.to_path_buf()),
+        None => {
+            // Create a preview of the generated line for debugging
+            let line_preview = if generated_line.len() > 200 {
+                format!("{}...", &generated_line[..200])
+            } else {
+                generated_line.to_string()
+            };
+            bail!(
+                "failed to parse cargo doc output - Generated line found but has no parent directory: {}",
+                line_preview
+            )
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -174,6 +176,9 @@ mod tests {
         let stdout = "  Documenting serde v1.0.193\n  some other output\n";
         let result = doc_output_dir(stdout);
         assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("failed to parse cargo doc output"));
+        assert!(error_msg.contains("could not find 'Generated' line"));
     }
 
     #[test]

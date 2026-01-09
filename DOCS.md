@@ -258,6 +258,23 @@ By default, cargo-txt shows only error messages.
 
 ## Error Handling
 
+cargo-txt uses the `anyhow` crate for error handling, providing uniform error
+handling with automatic source chaining and context addition. Errors are
+displayed with clear context and full error chains when available.
+
+### Error Chain Format
+
+anyhow automatically formats error chains with "Caused by:" sections. Each layer
+of the application adds appropriate context to help you understand where and why
+errors occurred:
+
+```
+Error: failed to execute cargo doc for crate 'serde'
+
+Caused by:
+    failed to execute cargo doc command: error: package ID specification `serde` did not match any packages
+```
+
 ### Common Errors
 
 #### Failed Cargo Execution
@@ -265,7 +282,7 @@ By default, cargo-txt shows only error messages.
 If `cargo doc` fails (crate not found), you will see:
 
 ```
-Error: Failed to execute cargo doc for crate 'crate_name':
+Error: failed to execute cargo doc for crate 'crate_name':
 
 error: package ID specification `crate_name` did not match any packages
 ```
@@ -275,7 +292,7 @@ error: package ID specification `crate_name` did not match any packages
 If `cargo metadata` fails (invalid `Cargo.toml`), you will see:
 
 ```
-Error: Failed to execute cargo metadata command:
+Error: failed to execute cargo metadata command:
 
 error: failed to parse manifest at `/path/to/Cargo.toml`
 ```
@@ -297,9 +314,43 @@ Only installed dependencies can be built. Add the crate to Cargo.toml as a depen
 If HTML parsing fails, you will see the error with its full chain:
 
 ```
-Error: Build(HtmlParseFailed { path: "path/to/index.html", source: ElementNotFound { selector: "main" } })
+Error: failed to read file 'path/to/index.html'
+
 Caused by:
-  Element not found with selector 'main'
+    No such file or directory (os error 2)
+```
+
+or for selector errors:
+
+```
+Error: failed to parse HTML selector for item mappings: expected '>'
+```
+
+#### Documentation Index Not Found
+
+If the documentation index file cannot be found, you will see:
+
+```
+Error: failed to read documentation index file 'path/to/target/doc/serde/all.html'
+
+Caused by:
+    No such file or directory (os error 2)
+```
+
+#### Item Path Resolution Failed
+
+If you request an item that doesn't exist, you will see:
+
+```
+Error: could not resolve item path 'serde::NonExistent'. Please ensure the item exists in the crate and try: `cargo txt build serde`
+```
+
+#### Invalid Item Path Format
+
+If you provide an invalid item path format, you will see:
+
+```
+Error: invalid item path '::invalid'. Expected format: <crate> or <crate>::<item> (e.g., 'serde' or 'serde::Error').
 ```
 
 ### Exit Codes

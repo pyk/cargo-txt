@@ -5,9 +5,9 @@
 
 mod cargo;
 mod commands;
-mod error;
 mod html2md;
 
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
 use commands::{build, show};
@@ -43,7 +43,7 @@ enum Command {
     },
 }
 
-fn main() -> error::Result<()> {
+fn main() -> Result<()> {
     // 1. Collect arguments
     let mut args: Vec<String> = std::env::args().collect();
 
@@ -61,8 +61,8 @@ fn main() -> error::Result<()> {
     env_logger::Builder::from_env(env).init();
 
     match args.command {
-        Command::Build { crate_name } => build(crate_name)?,
-        Command::Show { item_path } => show(item_path)?,
+        Command::Build { crate_name } => build(&crate_name)?,
+        Command::Show { item_path } => show(&item_path)?,
     }
 
     Ok(())

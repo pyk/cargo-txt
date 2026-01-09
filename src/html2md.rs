@@ -3,28 +3,27 @@
 //! This module provides functions to convert HTML strings to markdown
 //! by extracting the <main> element content and converting it to markdown.
 
+use anyhow::{Result, bail};
+use scraper::element_ref::ElementRef;
 use scraper::{Html, Selector};
-
-use crate::error;
 
 /// Convert HTML string to markdown by extracting main element content.
 ///
 /// This function parses the HTML, extracts the content within the <main>
 /// element, and converts it to markdown format.
-pub fn convert(html: &str) -> error::Result<String> {
+pub fn convert(html: &str) -> Result<String> {
     let document = Html::parse_document(html);
-    let selector = Selector::parse("main").map_err(|e| error::Error::HtmlSelectorParseFailed {
-        selector: "main".to_string(),
-        error: e.to_string(),
-    })?;
+    let selector = match Selector::parse("main") {
+        Ok(s) => s,
+        Err(e) => bail!("failed to parse HTML selector for main element: {}", e),
+    };
 
-    let main_element =
-        document
-            .select(&selector)
-            .next()
-            .ok_or_else(|| error::Error::HtmlElementNotFound {
-                selector: "main".to_string(),
-            })?;
+    let main_element = match document.select(&selector).next() {
+        Some(e) => e,
+        None => bail!(
+            "HTML document does not contain a <main> element. This may indicate invalid rustdoc HTML output."
+        ),
+    };
 
     let mut markdown = String::new();
     convert_node(main_element, &mut markdown);
@@ -35,7 +34,7 @@ pub fn convert(html: &str) -> error::Result<String> {
 ///
 /// Returns true for rustdoc-specific elements that should not be rendered
 /// in the markdown output, such as UI controls, toolbars, and anchors.
-fn should_skip_node(node: scraper::element_ref::ElementRef) -> bool {
+fn should_skip_node(node: ElementRef) -> bool {
     let elem = node.value();
 
     // Skip specific tags
@@ -45,16 +44,19 @@ fn should_skip_node(node: scraper::element_ref::ElementRef) -> bool {
     }
 
     // Skip elements with specific IDs
-    if let Some(id) = elem.attr("id")
-        && id == "copy-path"
-    {
-        return true;
+    match elem.attr("id") {
+        Some("copy-path") => return true,
+        _ => {}
     }
 
     // Skip elements with specific classes
-    if let Some(class) = elem.attr("class")
-        && (class.contains("src") || class.contains("hideme") || class.contains("anchor"))
-    {
+    let should_skip_class = match elem.attr("class") {
+        Some(class) => {
+            class.contains("src") || class.contains("hideme") || class.contains("anchor")
+        }
+        None => false,
+    };
+    if should_skip_class {
         return true;
     }
 
@@ -65,7 +67,7 @@ fn should_skip_node(node: scraper::element_ref::ElementRef) -> bool {
 ///
 /// This function walks through the HTML node tree and converts each element
 /// to its markdown equivalent, handling nested elements appropriately.
-fn convert_node(node: scraper::element_ref::ElementRef, output: &mut String) {
+fn convert_node(node: ElementRef, output: &mut String) {
     // Skip rustdoc-specific UI elements
     if should_skip_node(node) {
         return;
@@ -195,16 +197,17 @@ fn convert_node(node: scraper::element_ref::ElementRef, output: &mut String) {
 ///
 /// This is used for block-level elements where whitespace should be collapsed
 /// into single spaces (paragraphs, headings, list items, definition terms/descriptions).
-fn convert_children_normalized(node: scraper::element_ref::ElementRef, output: &mut String) {
+fn convert_children_normalized(node: ElementRef, output: &mut String) {
     let mut buffer = String::new();
     convert_children(node, &mut buffer);
     // Normalize whitespace: collapse multiple spaces/newlines into single space
-    let normalized = buffer.split_whitespace().collect::<Vec<_>>().join(" ");
+    let normalized: Vec<&str> = buffer.split_whitespace().collect();
+    let normalized = normalized.join(" ");
     output.push_str(&normalized);
 }
 
 /// Convert children of a node to markdown.
-fn convert_children(node: scraper::element_ref::ElementRef, output: &mut String) {
+fn convert_children(node: ElementRef, output: &mut String) {
     for child in node.children() {
         match child.value() {
             scraper::Node::Text(text) => {
@@ -221,7 +224,7 @@ fn convert_children(node: scraper::element_ref::ElementRef, output: &mut String)
                 output.push_str(&processed);
             }
             scraper::Node::Element(_elem) => {
-                let Some(elem_ref) = scraper::element_ref::ElementRef::wrap(child) else {
+                let Some(elem_ref) = ElementRef::wrap(child) else {
                     continue;
                 };
                 convert_node(elem_ref, output);
@@ -232,7 +235,7 @@ fn convert_children(node: scraper::element_ref::ElementRef, output: &mut String)
 }
 
 /// Convert a list node to markdown.
-fn convert_list(node: scraper::element_ref::ElementRef, output: &mut String, is_ordered: bool) {
+fn convert_list(node: ElementRef, output: &mut String, is_ordered: bool) {
     let mut index = 1;
     for child in node.children() {
         let Some(elem) = child.value().as_element() else {
@@ -245,7 +248,7 @@ fn convert_list(node: scraper::element_ref::ElementRef, output: &mut String, is_
             } else {
                 output.push_str("- ");
             }
-            let Some(li_node) = scraper::element_ref::ElementRef::wrap(child) else {
+            let Some(li_node) = ElementRef::wrap(child) else {
                 continue;
             };
             convert_list_item(li_node, output);
@@ -255,7 +258,7 @@ fn convert_list(node: scraper::element_ref::ElementRef, output: &mut String, is_
 }
 
 /// Convert a list item to markdown with normalized whitespace.
-fn convert_list_item(node: scraper::element_ref::ElementRef, output: &mut String) {
+fn convert_list_item(node: ElementRef, output: &mut String) {
     convert_children_normalized(node, output);
 }
 
@@ -263,7 +266,7 @@ fn convert_list_item(node: scraper::element_ref::ElementRef, output: &mut String
 ///
 /// Renders definition terms as bold list items and descriptions on the same line.
 /// Format: "- **Term**: Description"
-fn convert_definition_list(node: scraper::element_ref::ElementRef, output: &mut String) {
+fn convert_definition_list(node: ElementRef, output: &mut String) {
     let mut current_term: Option<String> = None;
     let mut has_description = false;
 
@@ -279,7 +282,7 @@ fn convert_definition_list(node: scraper::element_ref::ElementRef, output: &mut 
                     output.push('\n');
                 }
 
-                let Some(dt_node) = scraper::element_ref::ElementRef::wrap(child) else {
+                let Some(dt_node) = ElementRef::wrap(child) else {
                     continue;
                 };
 
@@ -294,7 +297,7 @@ fn convert_definition_list(node: scraper::element_ref::ElementRef, output: &mut 
             "dd" => {
                 if current_term.is_some() {
                     output.push_str(": ");
-                    let Some(dd_node) = scraper::element_ref::ElementRef::wrap(child) else {
+                    let Some(dd_node) = ElementRef::wrap(child) else {
                         continue;
                     };
                     convert_children_normalized(dd_node, output);
@@ -356,27 +359,30 @@ fn process_text_links(text: &str) -> String {
             }
 
             // Check if this is a reference-style link (followed by another bracket)
-            if let Some(&'[') = chars.peek() {
-                // This is [text][reference], skip the reference part
-                chars.next(); // consume opening [
-                let mut ref_bracket_count = 1;
-                for ref_next in chars.by_ref() {
-                    if ref_next == '[' {
-                        ref_bracket_count += 1;
-                    } else if ref_next == ']' {
-                        ref_bracket_count -= 1;
-                        if ref_bracket_count == 0 {
-                            break;
+            match chars.peek() {
+                Some(&'[') => {
+                    // This is [text][reference], skip the reference part
+                    chars.next(); // consume opening [
+                    let mut ref_bracket_count = 1;
+                    for ref_next in chars.by_ref() {
+                        if ref_next == '[' {
+                            ref_bracket_count += 1;
+                        } else if ref_next == ']' {
+                            ref_bracket_count -= 1;
+                            if ref_bracket_count == 0 {
+                                break;
+                            }
                         }
                     }
+                    // Output only the link text (no brackets)
+                    result.push_str(&link_text);
                 }
-                // Output only the link text (no brackets)
-                result.push_str(&link_text);
-            } else {
-                // Not a reference-style link, output with brackets
-                result.push('[');
-                result.push_str(&link_text);
-                result.push(']');
+                _ => {
+                    // Not a reference-style link, output with brackets
+                    result.push('[');
+                    result.push_str(&link_text);
+                    result.push(']');
+                }
             }
         } else {
             result.push(c);
@@ -464,10 +470,12 @@ mod tests {
     }
 
     #[test]
-    fn missing_main_element() {
+    fn convert_missing_main_element() {
         let html = "<div><h1>No main</h1></div>";
         let result = convert(html);
         assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("does not contain a <main> element"));
     }
 
     #[test]
@@ -478,7 +486,7 @@ mod tests {
     }
 
     #[test]
-    fn h1_with_copy_path_button() {
+    fn convert_h1_with_copy_path_button() {
         let html = r#"<main>
             <h1>
                 Crate <span>rustdoc_<wbr />types</span> <button id="copy-path">
@@ -491,7 +499,7 @@ mod tests {
     }
 
     #[test]
-    fn docblock_with_toolbar() {
+    fn convert_docblock_with_toolbar() {
         let html = r#"<main>
             <rustdoc-toolbar></rustdoc-toolbar>
             <span class="sub-heading">
@@ -507,7 +515,7 @@ mod tests {
     }
 
     #[test]
-    fn inline_code_spacing_and_links() {
+    fn convert_inline_code_spacing_and_links() {
         let html = "<main><p>Through the <code>--output-format json</code> flag. The <a href=\"struct.Crate.html\"><code>Crate</code></a> struct.</p></main>";
         let result = convert(html).unwrap();
         assert_eq!(
@@ -517,21 +525,21 @@ mod tests {
     }
 
     #[test]
-    fn h2_with_anchor() {
+    fn convert_h2_with_anchor() {
         let html = "<main><h2 id=\"structs\" class=\"section-header\">Structs<a href=\"#structs\" class=\"anchor\">§</a></h2></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "## Structs\n\n");
     }
 
     #[test]
-    fn definition_list_simple() {
+    fn convert_definition_list_simple() {
         let html = "<main><dl class=\"item-table\"><dt><a href=\"struct.Crate.html\">Crate</a></dt><dd>The root.</dd><dt><a href=\"struct.Enum.html\">Enum</a></dt><dd>An enum.</dd></dl></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "- **Crate**: The root.\n- **Enum**: An enum.\n\n");
     }
 
     #[test]
-    fn definition_list_with_wbr() {
+    fn convert_definition_list_with_wbr() {
         let html = "<main><dl class=\"item-table\"><dt><a class=\"struct\" href=\"struct.AssocItemConstraint.html\">Assoc<wbr />Item<wbr />Constraint</a></dt><dd>Describes a bound applied to an associated type/constant.</dd></dl></main>";
         let result = convert(html).unwrap();
         assert_eq!(
@@ -541,21 +549,21 @@ mod tests {
     }
 
     #[test]
-    fn non_breaking_space_handling() {
+    fn convert_non_breaking_space_handling() {
         let html = "<main><p>Test&nbsp;text</p></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "Test text\n\n");
     }
 
     #[test]
-    fn markdown_reference_links() {
+    fn convert_markdown_reference_links() {
         let html = r#"<main><ul><li>Derive [tutorial][_derive::_tutorial] and [reference][_derive]</li></ul></main>"#;
         let result = convert(html).unwrap();
         assert_eq!(result, "- Derive tutorial and reference\n\n");
     }
 
     #[test]
-    fn paragraph_whitespace_normalization() {
+    fn convert_paragraph_whitespace_normalization() {
         let html = r#"<main><p>
 	These types are the public API exposed through
 	the <code>--output-format json</code> flag. The
@@ -575,7 +583,7 @@ mod tests {
     }
 
     #[test]
-    fn definition_list_whitespace_normalization() {
+    fn convert_definition_list_whitespace_normalization() {
         let html = r#"<main><dl>
 	<dt>
 		<a
@@ -598,14 +606,14 @@ mod tests {
     }
 
     #[test]
-    fn code_block_with_newline() {
+    fn convert_code_block_with_newline() {
         let html = r#"<main><div class="example-wrap"><pre class="language-console"><code>$ cargo add clap --features derive</code></pre></div></main>"#;
         let result = convert(html).unwrap();
         assert_eq!(result, "```\n$ cargo add clap --features derive\n```\n\n");
     }
 
     #[test]
-    fn script_tag_skipped() {
+    fn convert_script_tag_skipped() {
         let html = r#"<main>
             <p>Some content</p>
             <script type="text/json" id="notable-traits-data">
@@ -620,7 +628,7 @@ mod tests {
     }
 
     #[test]
-    fn link_renders_inner_content_only() {
+    fn convert_link_renders_inner_content_only() {
         let html = "<main><p><a href=\"struct.Crate.html\"><code>Crate</code></a> and <a href=\"struct.Enum.html\">Something</a></p></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "`Crate` and Something\n\n");

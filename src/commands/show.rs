@@ -4,12 +4,13 @@
 //! to stdout. Users can view either the entire crate documentation (all.md)
 //! or specific items by providing an item path.
 
+use anyhow::{Context, Result, bail};
 use log::{debug, info, trace};
+use std::fs;
 use std::path::PathBuf;
 
 use crate::cargo;
 use crate::commands;
-use crate::error;
 
 /// Parsed item path containing crate name and optional item.
 #[derive(Debug)]
@@ -22,10 +23,10 @@ struct ParsedItemPath {
 ///
 /// This function parses the item path, ensures documentation is built,
 /// resolves the appropriate markdown file, and prints its contents to stdout.
-pub fn show(item_path: String) -> error::Result<()> {
+pub fn show(item_path: &str) -> Result<()> {
     debug!("Show command: item_path={}", item_path);
 
-    let parsed = parse_item_path(&item_path)?;
+    let parsed = parse_item_path(item_path)?;
     trace!(
         "Parsed: crate_name={}, item={:?}",
         parsed.crate_name, parsed.item
@@ -36,12 +37,8 @@ pub fn show(item_path: String) -> error::Result<()> {
     let markdown_path = resolve_markdown_path(&parsed)?;
     debug!("Resolved markdown path: {:?}", markdown_path);
 
-    let markdown_content = std::fs::read_to_string(&markdown_path).map_err(|error| {
-        error::ShowError::MarkdownNotFound {
-            path: markdown_path.clone(),
-            source: Box::new(error),
-        }
-    })?;
+    let markdown_content = fs::read_to_string(&markdown_path)
+        .with_context(|| format!("failed to read markdown file '{}'", markdown_path.display()))?;
     trace!("Read markdown file ({} bytes)", markdown_content.len());
 
     println!("{}", markdown_content);
@@ -53,16 +50,18 @@ pub fn show(item_path: String) -> error::Result<()> {
 ///
 /// Extracts the crate name (first component before `::`) and the remaining
 /// item path (if any) from the full item path string.
-fn parse_item_path(item_path: &str) -> error::Result<ParsedItemPath> {
+fn parse_item_path(item_path: &str) -> Result<ParsedItemPath> {
     let mut parts = item_path.split("::");
 
-    let crate_name = parts.next().filter(|s| !s.is_empty()).ok_or_else(|| {
-        error::ShowError::InvalidItemPath {
-            item_path: item_path.to_string(),
-        }
-    })?;
+    let crate_name = match parts.next().filter(|s| !s.is_empty()) {
+        Some(n) => n,
+        None => bail!(
+            "invalid item path '{}'. Expected format: <crate> or <crate>::<item> (e.g., 'serde' or 'serde::Error').",
+            item_path
+        ),
+    };
 
-    let item = parts.collect::<Vec<&str>>();
+    let item: Vec<&str> = parts.collect();
     let item = if item.is_empty() {
         None
     } else {
@@ -85,7 +84,7 @@ fn parse_item_path(item_path: &str) -> error::Result<ParsedItemPath> {
 /// If no item is specified, returns the path to all.md (master index).
 /// If an item is specified, looks up the item in all.html mappings and
 /// returns the corresponding markdown file path.
-fn resolve_markdown_path(parsed: &ParsedItemPath) -> error::Result<PathBuf> {
+fn resolve_markdown_path(parsed: &ParsedItemPath) -> Result<PathBuf> {
     let metadata = cargo::metadata()?;
     let docmd_dir = PathBuf::from(&metadata.target_directory).join("docmd");
     let crate_docmd_dir = docmd_dir.join(&parsed.crate_name);
@@ -105,11 +104,11 @@ fn resolve_markdown_path(parsed: &ParsedItemPath) -> error::Result<PathBuf> {
 
     let all_html_path = html_dir.join("all.html");
 
-    let all_html_content = std::fs::read_to_string(&all_html_path).map_err(|error| {
-        error::ShowError::DocIndexNotFound {
-            path: all_html_path.clone(),
-            source: Box::new(error),
-        }
+    let all_html_content = fs::read_to_string(&all_html_path).with_context(|| {
+        format!(
+            "failed to read documentation index file '{}'",
+            all_html_path.display()
+        )
     })?;
 
     let item_mappings =
@@ -119,12 +118,14 @@ fn resolve_markdown_path(parsed: &ParsedItemPath) -> error::Result<PathBuf> {
     let full_item_path = format!("{}::{}", parsed.crate_name, parsed_item);
     trace!("Looking up item path: {}", full_item_path);
 
-    let html_path = item_mappings.get(&full_item_path).ok_or_else(|| {
-        error::ShowError::ItemPathResolutionFailed {
-            item_path: full_item_path.clone(),
-            attempted_paths: vec![],
-        }
-    })?;
+    let html_path = match item_mappings.get(&full_item_path) {
+        Some(p) => p,
+        None => bail!(
+            r#"could not resolve item path '{}'. Please ensure the item exists in the crate and try: `cargo txt build {}`"#,
+            full_item_path,
+            parsed.crate_name
+        ),
+    };
 
     trace!("Found HTML path: {}", html_path);
 
@@ -139,7 +140,7 @@ fn resolve_markdown_path(parsed: &ParsedItemPath) -> error::Result<PathBuf> {
 ///
 /// Checks if the all.md file exists for the crate. If not, triggers
 /// a build to generate all markdown files.
-fn build_if_needed(parsed: &ParsedItemPath) -> error::Result<()> {
+fn build_if_needed(parsed: &ParsedItemPath) -> Result<()> {
     let metadata = cargo::metadata()?;
     let all_md_path = PathBuf::from(&metadata.target_directory)
         .join("docmd")
@@ -155,7 +156,7 @@ fn build_if_needed(parsed: &ParsedItemPath) -> error::Result<()> {
         "Documentation not found, running build for {}",
         parsed.crate_name
     );
-    commands::build::build(parsed.crate_name.clone())?;
+    commands::build::build(&parsed.crate_name)?;
 
     Ok(())
 }
@@ -166,7 +167,6 @@ fn build_if_needed(parsed: &ParsedItemPath) -> error::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error;
 
     ///////////////////////////////////////////////////////////////////////////
     // parse_item_path tests
@@ -203,36 +203,24 @@ mod tests {
     fn parse_item_path_invalid_leading_separator() {
         let result = parse_item_path("::invalid");
         assert!(result.is_err());
-        match result.unwrap_err() {
-            error::Error::Show(error::ShowError::InvalidItemPath { item_path }) => {
-                assert_eq!(item_path, "::invalid");
-            }
-            _ => panic!("Expected InvalidItemPath error"),
-        }
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("invalid item path '::invalid'"));
     }
 
     #[test]
     fn parse_item_path_empty_string() {
         let result = parse_item_path("");
         assert!(result.is_err());
-        match result.unwrap_err() {
-            error::Error::Show(error::ShowError::InvalidItemPath { item_path }) => {
-                assert_eq!(item_path, "");
-            }
-            _ => panic!("Expected InvalidItemPath error"),
-        }
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("invalid item path ''"));
     }
 
     #[test]
     fn parse_item_path_only_separators() {
         let result = parse_item_path("::");
         assert!(result.is_err());
-        match result.unwrap_err() {
-            error::Error::Show(error::ShowError::InvalidItemPath { item_path }) => {
-                assert_eq!(item_path, "::");
-            }
-            _ => panic!("Expected InvalidItemPath error"),
-        }
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("invalid item path '::'"));
     }
 
     #[test]

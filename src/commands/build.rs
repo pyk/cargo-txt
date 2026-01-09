@@ -3,20 +3,21 @@
 //! This module handles building documentation by executing cargo doc,
 //! converting the generated HTML to markdown, and writing the result.
 
+use anyhow::{Context, Result, bail};
 use log::{debug, info};
 use scraper::{Html, Selector};
 use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
 
 use crate::cargo;
-use crate::error;
 use crate::html2md;
 
 /// Build markdown documentation from rustdoc HTML.
 ///
 /// This function takes a crate name, generates HTML documentation using cargo doc,
 /// converts the generated HTML to markdown, and writes the result to the output directory.
-pub fn build(crate_name: String) -> error::Result<()> {
+pub fn build(crate_name: &str) -> Result<()> {
     debug!("Building documentation for crate: {}", crate_name);
 
     // Get cargo metadata and validate the crate
@@ -24,36 +25,40 @@ pub fn build(crate_name: String) -> error::Result<()> {
 
     debug!("Target directory: {}", metadata.target_directory);
 
-    // Find the dependency for the requested crate
-    metadata.packages[0]
+    // Create the available list once and check if crate exists
+    let available_list: Vec<&str> = metadata.packages[0]
         .dependencies
         .iter()
-        .find(|dep| dep.name == crate_name)
-        .ok_or_else(|| error::BuildError::InvalidCrateName {
-            requested: crate_name.clone(),
-            available: metadata.packages[0]
-                .dependencies
-                .iter()
-                .map(|dep| dep.name.clone())
-                .collect(),
-        })?;
+        .map(|dep| dep.name.as_str())
+        .collect();
+
+    let crate_not_exists = !available_list.contains(&crate_name);
+    if crate_not_exists {
+        bail!(
+            concat!(
+                "Crate '{}' is not an installed dependency.\n",
+                "\n",
+                "Available crates: {}\n",
+                "\n",
+                "Only installed dependencies can be built. ",
+                "Add the crate to Cargo.toml as a dependency first."
+            ),
+            crate_name,
+            available_list.join(", ")
+        );
+    }
 
     // Generate HTML documentation
     info!("Running cargo doc --package {} --no-deps", crate_name);
-    let html_dir = cargo::doc(&crate_name)?;
+    let html_dir = cargo::doc(crate_name)?;
 
     debug!("HTML directory: {:?}", html_dir);
 
     // Read the index.html file
     let html_path = html_dir.join("index.html");
-
     debug!("Reading HTML file: {:?}", html_path);
-
-    let html_content =
-        std::fs::read_to_string(&html_path).map_err(|error| error::BuildError::FileReadFailed {
-            path: html_path.clone(),
-            source: Box::new(error),
-        })?;
+    let html_content = fs::read_to_string(&html_path)
+        .with_context(|| format!("failed to read file '{}'", html_path.display()))?;
 
     // Convert HTML to markdown
     debug!("Converting HTML to markdown ({} bytes)", html_content.len());
@@ -62,29 +67,25 @@ pub fn build(crate_name: String) -> error::Result<()> {
     debug!("Markdown content ({} bytes)", markdown_content.len());
 
     // Create output directory structure: target/docmd/<crate>/
-    let output_dir = std::path::PathBuf::from(&metadata.target_directory)
+    let output_dir = PathBuf::from(&metadata.target_directory)
         .join("docmd")
-        .join(&crate_name);
+        .join(crate_name);
 
     if !output_dir.exists() {
         debug!("Creating output directory: {:?}", output_dir);
-        std::fs::create_dir_all(&output_dir).map_err(|error| {
-            error::BuildError::OutputDirCreationFailed {
-                path: output_dir.clone(),
-                source: Box::new(error),
-            }
+        fs::create_dir_all(&output_dir).with_context(|| {
+            format!(
+                "failed to create output directory '{}'",
+                output_dir.display()
+            )
         })?;
     }
 
     // Write markdown to index.md
     let index_path = output_dir.join("index.md");
     debug!("Writing markdown to: {:?}", index_path);
-    std::fs::write(&index_path, markdown_content).map_err(|error| {
-        error::BuildError::MarkdownWriteFailed {
-            path: index_path.clone(),
-            source: Box::new(error),
-        }
-    })?;
+    fs::write(&index_path, markdown_content)
+        .with_context(|| format!("failed to write markdown file '{}'", index_path.display()))?;
 
     info!("Successfully generated markdown");
     println!("Generated markdown: {}", index_path.display());
@@ -93,19 +94,8 @@ pub fn build(crate_name: String) -> error::Result<()> {
     info!("Processing all.html");
     let all_html_path = html_dir.join("all.html");
 
-    let all_html_content = std::fs::read_to_string(&all_html_path).map_err(|error| {
-        if error.kind() == std::io::ErrorKind::NotFound {
-            error::BuildError::DocIndexNotFound {
-                path: all_html_path.clone(),
-                source: Box::new(error),
-            }
-        } else {
-            error::BuildError::FileReadFailed {
-                path: all_html_path.clone(),
-                source: Box::new(error),
-            }
-        }
-    })?;
+    let all_html_content = fs::read_to_string(&all_html_path)
+        .with_context(|| format!("failed to read file '{}'", all_html_path.display()))?;
 
     debug!(
         "Converting all.html to markdown ({} bytes)",
@@ -115,19 +105,14 @@ pub fn build(crate_name: String) -> error::Result<()> {
 
     let all_path = output_dir.join("all.md");
     debug!("Writing all.md to: {:?}", all_path);
-    std::fs::write(&all_path, all_markdown_content).map_err(|error| {
-        error::BuildError::MarkdownWriteFailed {
-            path: all_path.clone(),
-            source: Box::new(error),
-        }
-    })?;
+    fs::write(&all_path, all_markdown_content)
+        .with_context(|| format!("failed to write markdown file '{}'", all_path.display()))?;
 
     info!("Generated all.md");
     println!("Generated markdown: {}", all_path.display());
 
-    // Extract item mappings from all.html (href -> full Rust path)
     info!("Extracting item mappings from all.html");
-    let item_mappings = extract_item_mappings(&crate_name, &all_html_content)?;
+    let item_mappings = extract_item_mappings(crate_name, &all_html_content)?;
     debug!("Found {} items to convert", item_mappings.len());
 
     // Generate markdown for each item
@@ -138,33 +123,24 @@ pub fn build(crate_name: String) -> error::Result<()> {
 
         debug!("Converting {:?} to {:?}", html_path, relative_md_path);
 
-        let html_content = std::fs::read_to_string(&html_path).map_err(|error| {
-            error::BuildError::FileReadFailed {
-                path: html_path.to_path_buf(),
-                source: Box::new(error),
-            }
-        })?;
+        let html_content = fs::read_to_string(&html_path)
+            .with_context(|| format!("failed to read file '{}'", html_path.display()))?;
 
         let markdown_content = html2md::convert(&html_content)?;
 
-        // Create parent directories if needed
-        if let Some(parent) = md_path.parent()
-            && !parent.exists()
-        {
-            std::fs::create_dir_all(parent).map_err(|error| {
-                error::BuildError::OutputDirCreationFailed {
-                    path: parent.to_path_buf(),
-                    source: Box::new(error),
-                }
+        let parent = match md_path.parent() {
+            Some(p) => p,
+            None => bail!("md_path has no parent directory"),
+        };
+
+        if !parent.exists() {
+            fs::create_dir_all(parent).with_context(|| {
+                format!("failed to create output directory '{}'", parent.display())
             })?;
         }
 
-        std::fs::write(&md_path, markdown_content).map_err(|error| {
-            error::BuildError::MarkdownWriteFailed {
-                path: md_path.to_path_buf(),
-                source: Box::new(error),
-            }
-        })?;
+        fs::write(&md_path, markdown_content)
+            .with_context(|| format!("failed to write markdown file '{}'", md_path.display()))?;
     }
 
     info!("Generated markdown for {} items", item_mappings.len());
@@ -179,30 +155,22 @@ pub fn build(crate_name: String) -> error::Result<()> {
 /// (e.g., `struct.Error.html`).
 ///
 /// Returns a HashMap mapping full Rust paths to HTML file paths.
-pub fn extract_item_mappings(
-    crate_name: &str,
-    html: &str,
-) -> error::Result<HashMap<String, String>> {
+pub fn extract_item_mappings(crate_name: &str, html: &str) -> Result<HashMap<String, String>> {
     let mut mappings = HashMap::new();
 
     let document = Html::parse_document(html);
-    let selector = Selector::parse("ul.all-items li a").map_err(|e| {
-        error::Error::HtmlSelectorParseFailed {
-            selector: "ul.all-items li a".to_string(),
-            error: e.to_string(),
-        }
-    })?;
+    let selector = match Selector::parse("ul.all-items li a") {
+        Ok(s) => s,
+        Err(e) => bail!("failed to parse HTML selector for item mappings: {}", e),
+    };
 
     for element in document.select(&selector) {
-        let href =
-            element
-                .value()
-                .attr("href")
-                .ok_or_else(|| error::Error::HtmlElementNotFound {
-                    selector: "ul.all-items li a[href]".to_string(),
-                })?;
+        let href = match element.value().attr("href") {
+            Some(h) => h,
+            None => bail!("href attribute not found in item link"),
+        };
 
-        let text = element.text().collect::<String>();
+        let text: String = element.text().collect();
 
         // Build full Rust path by prefixing with crate name
         let full_path = format!("{}::{}", crate_name, text);
@@ -211,9 +179,7 @@ pub fn extract_item_mappings(
     }
 
     if mappings.is_empty() {
-        return Err(error::Error::HtmlElementNotFound {
-            selector: "ul.all-items".to_string(),
-        });
+        bail!("failed to find item mappings in documentation - no items found");
     }
 
     Ok(mappings)
@@ -340,6 +306,8 @@ mod tests {
 
         let result = extract_item_mappings("serde", html);
         assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("failed to find item mappings"));
     }
 
     #[test]
@@ -357,6 +325,8 @@ mod tests {
 
         let result = extract_item_mappings("serde", html);
         assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("failed to find item mappings"));
     }
 
     #[test]
