@@ -19,6 +19,47 @@ cargo txt --help
 
 ## Commands
 
+### list
+
+List all items in a crate:
+
+```shell
+cargo txt list <CRATE>
+```
+
+**Arguments:**
+
+- `<CRATE>` - Crate name to list items for (required). Must be a simple crate
+  name without `::` separators.
+
+**Examples:**
+
+List all items in a crate:
+
+```shell
+cargo txt list serde
+```
+
+**How It Works:**
+
+1. Validates the input is a simple crate name (rejects paths with `::`)
+2. Checks if markdown documentation exists (auto-builds if needed)
+3. Reads and displays `all.md` (master index of all items)
+
+**Auto-Build:**
+
+The list command automatically builds documentation if it doesn't exist. You
+don't need to run `cargo txt build` separately. It checks for the existence of
+`target/docmd/<crate>/all.md` and triggers a build if the file is missing.
+
+**Error Handling:**
+
+If you provide a path with `::`, you will see an error message:
+
+```
+Error: the list command only accepts crate names. Use 'cargo txt show serde::Error' to view specific items.
+```
+
 ### show
 
 Show and view crate documentation:
@@ -30,13 +71,13 @@ cargo txt show <ITEM_PATH>
 **Arguments:**
 
 - `<ITEM_PATH>` - Item path to show (required). Can be:
-    - Crate name only (e.g., `serde`): displays master index of all items
+    - Crate name only (e.g., `serde`): displays crate overview (index.md)
     - Full item path (e.g., `serde::Error`, `serde::ser::StdError`): displays
       specific item documentation
 
 **Examples:**
 
-View all items in a crate:
+View crate overview:
 
 ```shell
 cargo txt show serde
@@ -53,7 +94,8 @@ cargo txt show serde::ser::StdError
 
 1. Parses the item path to extract crate name and optional item
 2. Checks if markdown documentation exists (auto-builds if needed)
-3. If item path is just a crate name: reads and displays `all.md` (master index)
+3. If item path is just a crate name: reads and displays `index.md` (crate
+   overview)
 4. If item path includes modules/items:
     - Reads `all.html` to extract item mappings
     - Looks up the exact HTML file for the requested item
@@ -364,4 +406,8 @@ Error: invalid item path '::invalid'. Expected format: <crate> or <crate>::<item
   `all.md`, `index.md`, and individual item files. The conversion handles common
   HTML elements but may not cover all edge cases in rustdoc HTML.
 - **Show command**: Fully implemented. Displays crate documentation to stdout
+  with auto-build functionality. Shows crate overview (`index.md`) for
+  crate-level requests or specific item documentation for full item paths.
+- **List command**: Fully implemented. Lists all items in a crate by displaying
+  the master index (`all.md`). Accepts only crate names (no `::` separators)
   with auto-build functionality.

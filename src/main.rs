@@ -10,7 +10,7 @@ mod html2md;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
-use commands::{build, show};
+use commands::{build, list, show};
 
 /// A cargo doc for coding agents
 #[derive(Parser)]
@@ -41,6 +41,13 @@ enum Command {
         #[arg(value_name = "ITEM")]
         item_path: String,
     },
+
+    /// List all items in a crate.
+    List {
+        /// Crate name (e.g., 'serde')
+        #[arg(value_name = "CRATE")]
+        crate_name: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -63,6 +70,7 @@ fn main() -> Result<()> {
     match args.command {
         Command::Build { crate_name } => build(&crate_name)?,
         Command::Show { item_path } => show(&item_path)?,
+        Command::List { crate_name } => list(&crate_name)?,
     }
 
     Ok(())

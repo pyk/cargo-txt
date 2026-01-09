@@ -1,16 +1,17 @@
 //! Show command implementation.
 //!
 //! This module provides the show command which displays crate documentation
-//! to stdout. Users can view either the entire crate documentation (all.md)
-//! or specific items by providing an item path.
+//! to stdout. Users can view the crate overview (index.md) or specific items
+//! by providing an item path.
 
 use anyhow::{Context, Result, bail};
-use log::{debug, info, trace};
+use log::{debug, trace};
 use std::fs;
 use std::path::PathBuf;
 
 use crate::cargo;
 use crate::commands;
+use crate::commands::build;
 
 /// Parsed item path containing crate name and optional item.
 #[derive(Debug)]
@@ -32,7 +33,7 @@ pub fn show(item_path: &str) -> Result<()> {
         parsed.crate_name, parsed.item
     );
 
-    build_if_needed(&parsed)?;
+    build::if_needed(&parsed.crate_name)?;
 
     let markdown_path = resolve_markdown_path(&parsed)?;
     debug!("Resolved markdown path: {:?}", markdown_path);
@@ -91,9 +92,9 @@ fn resolve_markdown_path(parsed: &ParsedItemPath) -> Result<PathBuf> {
 
     let parsed_item = match &parsed.item {
         None => {
-            let all_md = crate_docmd_dir.join("all.md");
-            trace!("No item specified, returning all.md: {:?}", all_md);
-            return Ok(all_md);
+            let index_md = crate_docmd_dir.join("index.md");
+            trace!("No item specified, returning index.md: {:?}", index_md);
+            return Ok(index_md);
         }
         Some(item) => item,
     };
@@ -134,31 +135,6 @@ fn resolve_markdown_path(parsed: &ParsedItemPath) -> Result<PathBuf> {
     debug!("Resolved markdown path: {:?}", markdown_path);
 
     Ok(markdown_path)
-}
-
-/// Build documentation if needed.
-///
-/// Checks if the all.md file exists for the crate. If not, triggers
-/// a build to generate all markdown files.
-fn build_if_needed(parsed: &ParsedItemPath) -> Result<()> {
-    let metadata = cargo::metadata()?;
-    let all_md_path = PathBuf::from(&metadata.target_directory)
-        .join("docmd")
-        .join(&parsed.crate_name)
-        .join("all.md");
-
-    if all_md_path.exists() {
-        debug!("Documentation exists at {:?}, skipping build", all_md_path);
-        return Ok(());
-    }
-
-    info!(
-        "Documentation not found, running build for {}",
-        parsed.crate_name
-    );
-    commands::build::build(&parsed.crate_name)?;
-
-    Ok(())
 }
 
 ///////////////////////////////////////////////////////////////////////////////

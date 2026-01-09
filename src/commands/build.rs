@@ -185,6 +185,28 @@ pub fn extract_item_mappings(crate_name: &str, html: &str) -> Result<HashMap<Str
     Ok(mappings)
 }
 
+/// Build documentation for a crate if needed.
+///
+/// Checks if the all.md file exists for the crate. If not, triggers
+/// a build to generate all markdown files.
+pub fn if_needed(crate_name: &str) -> Result<()> {
+    let metadata = cargo::metadata()?;
+    let all_md_path = PathBuf::from(&metadata.target_directory)
+        .join("docmd")
+        .join(crate_name)
+        .join("all.md");
+
+    if all_md_path.exists() {
+        debug!("Documentation exists at {:?}, skipping build", all_md_path);
+        return Ok(());
+    }
+
+    info!("Documentation not found, running build for {}", crate_name);
+    build(crate_name)?;
+
+    Ok(())
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Tests
 
@@ -349,4 +371,13 @@ mod tests {
             Some(&"trait.MyTrait.html".to_string())
         );
     }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // if_needed tests
+    // Note: Full integration tests for if_needed would require:
+    // - Setting up a temporary directory structure
+    // - Mocking cargo metadata and cargo doc
+    // - Creating/clearing all.md files to test both paths
+    // These would be better suited as integration tests in tests/
+    // The function is tested indirectly through show and list commands
 }

@@ -40,8 +40,9 @@ Use `cargo txt show <crate-item>` to access the crate documentation.
 
 For example:
 
-- Access serde documentation index: `cargo txt show serde`
+- Access serde crate overview: `cargo txt show serde`
 - Access `serde::Deserialize` trait doc: `cargo txt show serde::Deserialize`
+- List all items in serde: `cargo txt list serde`
 ```
 
 ## Why I'm building this
@@ -75,8 +76,41 @@ accurate, and the frustrating back-and-forth cycle of trial and error reduced.
 - Simple command-line interface for coding agent.
 - Local documentation access in markdown format.
 - Crate and item-level browsing for targeted access, reducing the token usage.
+- Master index listing for comprehensive item discovery.
 
 ## Usage
+
+### List Command
+
+List all items in a crate:
+
+```shell
+cargo txt list <CRATE>
+```
+
+**Arguments:**
+
+- `<CRATE>` - Crate name to list items for (required). Must be a simple crate
+  name without `::` separators.
+
+**Examples:**
+
+List all items in a crate:
+
+```shell
+cargo txt list serde
+```
+
+**How It Works:**
+
+1. Validates the input is a simple crate name (rejects paths with `::`)
+2. Checks if markdown documentation exists (auto-builds if needed)
+3. Reads and displays `all.md` (master index of all items)
+
+**Auto-Build:**
+
+The list command automatically builds documentation if it doesn't exist. You
+don't need to run `cargo txt build` separately.
 
 ### Show Command
 
@@ -89,13 +123,13 @@ cargo txt show <ITEM_PATH>
 **Arguments:**
 
 - `<ITEM_PATH>` - Item path to show (required). Can be:
-    - Crate name only (e.g., `serde`): displays master index of all items
+    - Crate name only (e.g., `serde`): displays crate overview (index.md)
     - Full item path (e.g., `serde::Error`, `serde::ser::StdError`): displays
       specific item documentation
 
 **Examples:**
 
-View all items in a crate:
+View crate overview:
 
 ```shell
 cargo txt show serde
@@ -112,7 +146,8 @@ cargo txt show serde::ser::StdError
 
 1. Parses the item path to extract crate name and optional item
 2. Checks if markdown documentation exists (auto-builds if needed)
-3. If item path is just a crate name: reads and displays `all.md` (master index)
+3. If item path is just a crate name: reads and displays `index.md` (crate
+   overview)
 4. If item path includes modules/items:
     - Reads `all.html` to extract item mappings
     - Looks up the exact HTML file for the requested item
@@ -226,8 +261,11 @@ Only installed dependencies can be built. Add the crate to Cargo.toml as a depen
 ## Current Status
 
 - **Show command**: Fully implemented. Displays crate documentation to stdout.
-  Opens master index (`all.md`) for crate-level requests or specific item
+  Opens crate overview (`index.md`) for crate-level requests or specific item
   documentation for full item paths. Auto-builds documentation when needed.
+- **List command**: Fully implemented. Lists all items in a crate by displaying
+  the master index (`all.md`). Accepts only crate names (no `::` separators).
+  Auto-builds documentation when needed.
 - **Build command**: Fully implemented. Generates HTML documentation using
   stable `cargo doc`, converts HTML files to markdown, and writes:
     - `all.md` - Master index of all items from `all.html`
