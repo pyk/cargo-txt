@@ -89,21 +89,19 @@ fn validate_crate_name(crate_name: &str, cargo_metadata: &cargo::Metadata) -> Re
         .map(|dep| dep.name.as_str())
         .collect();
 
-    let crate_exists = available_crates.contains(&crate_name);
-    if !crate_exists {
-        bail!(
-            concat!(
-                "Crate '{}' is not an installed dependency.\n",
-                "\n",
-                "Available crates: {}\n",
-                "\n",
-                "Only installed dependencies can be built. ",
-                "Add the crate to Cargo.toml as a dependency first."
-            ),
-            crate_name,
-            available_crates.join(", ")
-        );
-    }
+    ensure!(
+        available_crates.contains(&crate_name),
+        concat!(
+            "Crate '{}' is not an installed dependency.\n",
+            "\n",
+            "Available crates: {}\n",
+            "\n",
+            "Only installed dependencies can be built. ",
+            "Add the crate to Cargo.toml as a dependency first."
+        ),
+        crate_name,
+        available_crates.join(", ")
+    );
     Ok(())
 }
 
@@ -122,12 +120,11 @@ fn read_cargo_doc_output(cargo_doc_output_dir: &Path, crate_name: &str) -> Resul
     );
 
     let all_html_path = cargo_doc_output_dir.join("all.html");
-    if !all_html_path.exists() {
-        bail!(
-            "all.html not found in cargo doc output directory '{}'",
-            cargo_doc_output_dir.display()
-        );
-    }
+    ensure!(
+        all_html_path.exists(),
+        "all.html not found in cargo doc output directory '{}'",
+        cargo_doc_output_dir.display()
+    );
 
     let mut files = HashMap::new();
 
@@ -235,7 +232,7 @@ fn process_cargo_doc_output(cargo_doc_output: CargoDocOutput) -> Result<DocOutpu
         let full_item_path = format!("{}::{}", lib_name, item_name);
         debug!("Converting item: {}", full_item_path);
 
-        let full_html_path = cargo_doc_output.path.join(&html_path);
+        let full_html_path = cargo_doc_output.path.join(html_path);
         let html_content = fs::read_to_string(&full_html_path)
             .with_context(|| format!("failed to read HTML file '{}'", full_html_path.display()))?;
 
@@ -318,7 +315,7 @@ fn save_doc(doc_output: DocOutput) -> Result<()> {
         .unwrap_or("unknown");
 
     let total_files = doc_output.files.len();
-    let item_count = if total_files >= 3 { total_files - 3 } else { 0 };
+    let item_count = total_files.saturating_sub(3);
 
     println!(
         "✓ Built documentation for {} ({} items)",
