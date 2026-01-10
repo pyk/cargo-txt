@@ -10,10 +10,11 @@ When creating or updating a plan:
    `.zed/agent/guidelines/docs.md` strictly.
 5. Ensure plans for README.md updates adhere to guidelines in
    `.zed/agent/guidelines/readme.md` strictly.
-6. Follow instructions in `.zed/agent/instructions/create-plan.md`.
-7. Use the thinking tool.
-8. Include README.md and DOCS.md updates in the plan.
-9. Review existing plans for reference.
+6. Use the thinking tool.
+7. Include README.md and DOCS.md updates in the plan.
+8. Use `rust-lint`, `cargo clippy -- -D warnings`, `cargo build`, and
+   `cargo test` as success criteria.
+9. Follow instructions in `.zed/agent/instructions/create-plan.md`.
 
 # Building Mode
 
