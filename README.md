@@ -62,9 +62,6 @@ cargo txt show serde::Deserialize
 
 ## Why I'm building this
 
-Coding agents should use CLI for everything. Model Context Protocol servers are
-overkill.
-
 I built `cargo-txt` to feed my coding agent with up-to-date context and reduce
 hallucination. It converts `cargo doc` HTML to markdown so agents can access
 actual crate documentation from my local machine, not training data or outdated
