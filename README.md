@@ -2,7 +2,7 @@
   <a href="https://pyk.sh">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/pyk/cargo-txt/refs/heads/main/.github/logo-dark.svg">
-      <img alt="pyk/cargo-txt logo" src="https://raw.githubusercontent.com/pyk/cargo-txt/refs/heads/main/.github/logo-light.svg" height="64" width="auto">
+      <img alt="pyk/cargo-txt logo" src="https://raw.githubusercontent.com/pyk/cargo-txt/refs/heads/main/.github/logo-light.svg" height="48" width="auto">
     </picture>
   </a>
 </p>
