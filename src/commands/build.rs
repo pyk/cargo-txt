@@ -8,7 +8,7 @@ use log::{debug, info};
 use scraper::{Html, Selector};
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::cargo;
 use crate::html2md;
@@ -107,11 +107,11 @@ pub fn build(crate_name: &str) -> Result<()> {
     let crate_dir_name = html_dir
         .file_name()
         .and_then(|n| n.to_str())
-        .unwrap_or_else(|| crate_name);
+        .unwrap_or(crate_name);
     debug!("Crate directory name (source of truth): {}", crate_dir_name);
 
     // Format all.md with crate name heading and prefixed items
-    let formatted_content = format_all_md(&crate_dir_name, &all_markdown_content);
+    let formatted_content = format_all_md(crate_dir_name, &all_markdown_content);
 
     let all_path = output_dir.join("all.md");
     debug!("Writing all.md to: {:?}", all_path);
@@ -122,7 +122,7 @@ pub fn build(crate_name: &str) -> Result<()> {
     println!("Generated markdown: {}", all_path.display());
 
     info!("Extracting item mappings from all.html");
-    let item_mappings = extract_item_mappings(&crate_dir_name, &all_html_content)?;
+    let item_mappings = extract_item_mappings(crate_dir_name, &all_html_content)?;
     debug!("Found {} items to convert", item_mappings.len());
 
     // Generate markdown for each item
@@ -156,7 +156,7 @@ pub fn build(crate_name: &str) -> Result<()> {
     info!("Generated markdown for {} items", item_mappings.len());
 
     // Save crate path name for use by show and list commands
-    save_crate_path_name(&output_dir, &crate_dir_name)?;
+    save_crate_path_name(&output_dir, crate_dir_name)?;
 
     Ok(())
 }
@@ -165,7 +165,7 @@ pub fn build(crate_name: &str) -> Result<()> {
 ///
 /// Stores the crate directory name (source of truth from cargo doc) in
 /// docmd/<crate>/name for use by show and list commands.
-fn save_crate_path_name(output_dir: &PathBuf, path_name: &str) -> Result<()> {
+fn save_crate_path_name(output_dir: &Path, path_name: &str) -> Result<()> {
     let name_path = output_dir.join("name");
 
     fs::write(&name_path, path_name)
@@ -295,17 +295,21 @@ fn format_all_md(crate_name: &str, content: &str) -> String {
         if line.starts_with("### ") {
             in_section = true;
             result.push(line.to_string());
-        } else if line.starts_with("- ") {
-            let item = &line[2..];
-            result.push(format!("- {}::{}", crate_name, item));
-
-            // Collect first item from each section
-            if in_section {
-                first_items.push(format!("{}::{}", crate_name, item));
-                in_section = false; // Only collect first item per section
-            }
         } else {
-            result.push(line.to_string());
+            match line.strip_prefix("- ") {
+                Some(item) => {
+                    result.push(format!("- {}::{}", crate_name, item));
+
+                    // Collect first item from each section
+                    if in_section {
+                        first_items.push(format!("{}::{}", crate_name, item));
+                        in_section = false; // Only collect first item per section
+                    }
+                }
+                None => {
+                    result.push(line.to_string());
+                }
+            }
         }
     }
 
