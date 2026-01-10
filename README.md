@@ -89,7 +89,7 @@ accurate, and the frustrating back-and-forth cycle of trial and error reduced.
 
 ## Features
 
-- Simple command-line interface for coding agent.
+- Simple command-line interface for coding agents.
 - Local documentation access in markdown format.
 - Crate and item-level browsing for targeted access, reducing the token usage.
 - Master index listing for comprehensive item discovery.
@@ -98,16 +98,20 @@ accurate, and the frustrating back-and-forth cycle of trial and error reduced.
 
 ### Build Command
 
-Generate markdown documentation for a crate:
-
 ```shell
-cargo txt build <CRATE>
-```
+$ cargo txt build --help
+Generate markdown documentation from rustdoc HTML for coding agents
+
+Usage: cargo txt build [OPTIONS] <CRATE>
 
 Arguments:
+  <CRATE>  Crate name to build documentation for
 
-- `<CRATE>` - Crate name to build documentation for (required). This is the
-  dependency name from `Cargo.toml` (e.g., `rustdoc-types`).
+Options:
+  -v, --verbose...  Increase logging verbosity
+  -q, --quiet...    Decrease logging verbosity
+  -h, --help        Print help
+```
 
 This command generates HTML documentation using `cargo doc`, converts all HTML
 files to markdown, and writes them to the output directory. Output is placed in
@@ -119,7 +123,7 @@ The output directory uses the **library name** (from `cargo doc` output), not
 the crate name. For example, building `rustdoc-types` creates:
 
 ```
-target/docmd/rustdoc_types/    # Library name directory (underscores)
+target/docmd/rustdoc_types/     # Library name directory (underscores)
 ├── metadata.json               # Contains crate_name, lib_name, and item_map
 ├── index.md                    # Crate overview
 ├── all.md                      # Master index of all items
@@ -143,29 +147,24 @@ Output:
   Run `cargo txt list rustdoc_types` to see all items
 ```
 
-Error example:
-
-```shell
-$ cargo txt build random-crate
-Error: Crate 'random-crate' is not an installed dependency.
-
-Available crates: anyhow, clap, clap-verbosity-flag, env_logger, log, rustdoc-types, scraper, serde, serde_json, tempfile
-
-Only installed dependencies can be built. Add the crate to Cargo.toml as a dependency first.
-```
-
 ### List Command
 
 List all items in a crate:
 
 ```shell
-cargo txt list <NAME>
+$ cargo txt list --help
+List all items in a crate
+
+Usage: cargo txt list [OPTIONS] <CRATE>
+
+Arguments:
+  <CRATE>  Crate name (e.g., 'serde')
+
+Options:
+  -v, --verbose...  Increase logging verbosity
+  -q, --quiet...    Decrease logging verbosity
+  -h, --help        Print help
 ```
-
-**Arguments:**
-
-- `<NAME>` - Library name to list items for (required). This is the library name
-  from `cargo doc` output (e.g., `rustdoc_types`).
 
 **Examples:**
 
@@ -214,31 +213,30 @@ To view documentation for a specific item, use the `show` command:
 ```shell
 cargo txt show <ITEM_PATH>
 ```
-````
 
 Examples:
 
 - Show struct: `cargo txt show serde::SomeStruct`
 - Show trait: `cargo txt show serde::SomeTrait`
 - Show enum: `cargo txt show serde::SomeEnum`
-
 ````
 
 ### Show Command
 
-Show and view crate documentation:
-
 ```shell
-cargo txt show <ITEM_PATH>
-````
+$ cargo txt show --help
+Show and display crate documentation
 
-**Arguments:**
+Usage: cargo txt show [OPTIONS] <ITEM>
 
-- `<ITEM_PATH>` - Item path to show (required). Can be:
-    - Library name only (e.g., `rustdoc_types`): displays crate overview
-      (index.md)
-    - Full item path with library name (e.g., `rustdoc_types::Item`,
-      `rustdoc_types::Abi`): displays specific item documentation
+Arguments:
+  <ITEM>  Item path (e.g., 'serde', 'serde::Error', 'serde::ser::StdError')
+
+Options:
+  -v, --verbose...  Increase logging verbosity
+  -q, --quiet...    Decrease logging verbosity
+  -h, --help        Print help
+```
 
 **Important:** Use the library name (with underscores), not the crate name (with
 hyphens). For example:
