@@ -103,16 +103,26 @@ pub fn build(crate_name: &str) -> Result<()> {
     );
     let all_markdown_content = html2md::convert(&all_html_content)?;
 
+    // Get the crate directory name (source of truth from cargo doc output)
+    let crate_dir_name = html_dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_else(|| crate_name);
+    debug!("Crate directory name (source of truth): {}", crate_dir_name);
+
+    // Format all.md with crate name heading and prefixed items
+    let formatted_content = format_all_md(&crate_dir_name, &all_markdown_content);
+
     let all_path = output_dir.join("all.md");
     debug!("Writing all.md to: {:?}", all_path);
-    fs::write(&all_path, all_markdown_content)
+    fs::write(&all_path, formatted_content)
         .with_context(|| format!("failed to write markdown file '{}'", all_path.display()))?;
 
     info!("Generated all.md");
     println!("Generated markdown: {}", all_path.display());
 
     info!("Extracting item mappings from all.html");
-    let item_mappings = extract_item_mappings(crate_name, &all_html_content)?;
+    let item_mappings = extract_item_mappings(&crate_dir_name, &all_html_content)?;
     debug!("Found {} items to convert", item_mappings.len());
 
     // Generate markdown for each item
@@ -144,6 +154,24 @@ pub fn build(crate_name: &str) -> Result<()> {
     }
 
     info!("Generated markdown for {} items", item_mappings.len());
+
+    // Save crate path name for use by show and list commands
+    save_crate_path_name(&output_dir, &crate_dir_name)?;
+
+    Ok(())
+}
+
+/// Save crate path name to a file in crate directory.
+///
+/// Stores the crate directory name (source of truth from cargo doc) in
+/// docmd/<crate>/name for use by show and list commands.
+fn save_crate_path_name(output_dir: &PathBuf, path_name: &str) -> Result<()> {
+    let name_path = output_dir.join("name");
+
+    fs::write(&name_path, path_name)
+        .with_context(|| format!("failed to write crate name file '{}'", name_path.display()))?;
+
+    debug!("Saved crate path name to {:?}", name_path);
 
     Ok(())
 }
@@ -188,9 +216,14 @@ pub fn extract_item_mappings(crate_name: &str, html: &str) -> Result<HashMap<Str
 /// Build documentation for a crate if needed.
 ///
 /// Checks if the all.md file exists for the crate. If not, triggers
+/// a build to generate all markdown files. Accepts both underscore
+/// Checks if the documentation needs to be built.
+///
+/// Checks if the all.md file exists for the crate. If not, triggers
 /// a build to generate all markdown files.
 pub fn if_needed(crate_name: &str) -> Result<()> {
     let metadata = cargo::metadata()?;
+
     let all_md_path = PathBuf::from(&metadata.target_directory)
         .join("docmd")
         .join(crate_name)
@@ -207,12 +240,241 @@ pub fn if_needed(crate_name: &str) -> Result<()> {
     Ok(())
 }
 
+/// Format all.md content with crate name as H1 heading and prefixed items.
+///
+/// This function post-processes the raw markdown content from all.html to:
+/// - Add crate name as H1 heading at the top
+/// - Convert existing H1 "# List of all items" to a paragraph
+/// - Prefix all list items with crate name
+/// - Append usage instructions at the end
+///
+/// # Arguments
+///
+/// * `crate_name` - The name of the crate (e.g., "serde")
+/// * `content` - The raw markdown content from all.html
+///
+/// # Returns
+///
+/// Formatted markdown content ready to be written to all.md
+///
+/// # Examples
+///
+/// ```
+/// let raw = "# List of all items\n\n### Structs\n\n- Error\n";
+/// let formatted = format_all_md("serde", raw);
+/// // formatted starts with "# serde\n\nList of all items\n\n### Structs\n\n- serde::Error\n"
+/// ```
+fn format_all_md(crate_name: &str, content: &str) -> String {
+    let mut result = Vec::new();
+    let mut lines = content.lines();
+
+    // Add crate name as H1 at the start
+    result.push(format!("# {}", crate_name));
+    result.push(String::new());
+
+    // Process first line
+    let Some(first_line) = lines.next() else {
+        // No lines, just return crate name and usage instructions
+        return result.join("\n");
+    };
+
+    // Convert "# List of all items" to "List of all items"
+    if first_line.starts_with("# List of all items") {
+        result.push(first_line[2..].to_string());
+    } else {
+        result.push(first_line.to_string());
+    }
+
+    // Track first items from each section for usage examples
+    let mut first_items: Vec<String> = Vec::new();
+    let mut in_section = false;
+
+    // Process remaining lines
+    for line in lines {
+        // Check if we're entering a new section (### SectionName)
+        if line.starts_with("### ") {
+            in_section = true;
+            result.push(line.to_string());
+        } else if line.starts_with("- ") {
+            let item = &line[2..];
+            result.push(format!("- {}::{}", crate_name, item));
+
+            // Collect first item from each section
+            if in_section {
+                first_items.push(format!("{}::{}", crate_name, item));
+                in_section = false; // Only collect first item per section
+            }
+        } else {
+            result.push(line.to_string());
+        }
+    }
+
+    // Add usage instructions at the end
+    result.push(String::new());
+    result.push("## Usage".to_string());
+    result.push(String::new());
+    result.push("To view documentation for a specific item, use the `show` command:".to_string());
+    result.push(String::new());
+    result.push("```shell".to_string());
+    result.push("cargo txt show <ITEM_PATH>".to_string());
+    result.push("```".to_string());
+    result.push(String::new());
+    result.push("Examples:".to_string());
+    result.push(String::new());
+    result.push("```shell".to_string());
+
+    // Add examples using first items from sections (up to 3)
+    for item in first_items.iter().take(3) {
+        result.push(format!("cargo txt show {}", item));
+    }
+
+    // Fallback to generic examples if no items found
+    if first_items.is_empty() {
+        result.push(format!("cargo txt show {}::SomeItem", crate_name));
+    }
+
+    result.push("```".to_string());
+
+    result.join("\n")
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Tests
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    ///////////////////////////////////////////////////////////////////////////
+    // format_all_md tests
+
+    #[test]
+    fn format_all_md_adds_crate_name_heading() {
+        let content = "# List of all items\n\nContent here";
+        let result = format_all_md("serde", content);
+        assert!(result.starts_with("# serde\n"));
+    }
+
+    #[test]
+    fn format_all_md_converts_h1_to_paragraph() {
+        let content = "# List of all items\n\nMore content";
+        let result = format_all_md("serde", content);
+        assert!(result.contains("\nList of all items\n"));
+        assert!(!result.contains("# List of all items"));
+    }
+
+    #[test]
+    fn format_all_md_prefixes_simple_items() {
+        let content = "# List of all items\n\n### Structs\n\n- Error\n- Config";
+        let result = format_all_md("serde", content);
+        assert!(result.contains("- serde::Error"));
+        assert!(result.contains("- serde::Config"));
+    }
+
+    #[test]
+    fn format_all_md_prefixes_nested_items() {
+        let content = "# List of all items\n\n### Structs\n\n- de::IgnoredAny\n- ser::StdError";
+        let result = format_all_md("serde", content);
+        assert!(result.contains("- serde::de::IgnoredAny"));
+        assert!(result.contains("- serde::ser::StdError"));
+    }
+
+    #[test]
+    fn format_all_md_multiple_sections() {
+        let content = "# List of all items\n\n### Structs\n\n- Error\n\n### Traits\n\n- Serialize\n- Deserialize\n\n### Enums\n\n- Value";
+        let result = format_all_md("serde", content);
+        assert!(result.contains("- serde::Error"));
+        assert!(result.contains("- serde::Serialize"));
+        assert!(result.contains("- serde::Deserialize"));
+        assert!(result.contains("- serde::Value"));
+    }
+
+    #[test]
+    fn format_all_md_appends_usage_instructions() {
+        let content = "# List of all items\n\n### Structs\n\n- Error";
+        let result = format_all_md("serde", content);
+        assert!(result.contains("## Usage"));
+        assert!(result.contains("cargo txt show <ITEM_PATH>"));
+        assert!(result.contains("cargo txt show serde::Error"));
+    }
+
+    #[test]
+    fn format_all_md_preserves_non_list_lines() {
+        let content = "# List of all items\n\n### Structs\n\nSome text\n\n- Error";
+        let result = format_all_md("serde", content);
+        assert!(result.contains("### Structs"));
+        assert!(result.contains("Some text"));
+        assert!(result.contains("- serde::Error"));
+    }
+
+    #[test]
+    fn format_all_md_uses_crate_name_as_is() {
+        let content = "# List of all items\n\n### Structs\n\n- Error\n- Config";
+        let result = format_all_md("rustdoc_types", content);
+        // Crate name is used as-is for paths (source of truth from cargo doc)
+        assert!(result.contains("- rustdoc_types::Error"));
+        assert!(result.contains("- rustdoc_types::Config"));
+        // H1 heading uses the same crate name
+        assert!(result.starts_with("# rustdoc_types"));
+    }
+
+    #[test]
+    fn format_all_md_usage_instructions_use_first_items() {
+        let content = "# List of all items\n\n### Structs\n\n- Error\n- Config";
+        let result = format_all_md("serde", content);
+        // Usage instructions should use the first item from each section
+        assert!(result.contains("cargo txt show serde::Error"));
+        // Should NOT contain generic placeholders
+        assert!(!result.contains("cargo txt show serde::SomeStruct"));
+        assert!(!result.contains("cargo txt show serde::SomeTrait"));
+        assert!(!result.contains("cargo txt show serde::SomeEnum"));
+    }
+
+    #[test]
+    fn format_all_md_usage_instructions_with_crate_name() {
+        let content = "# List of all items\n\n### Structs\n\n- Error";
+        let result = format_all_md("my_crate", content);
+        // Usage instructions use the first item from sections
+        assert!(result.contains("cargo txt show my_crate::Error"));
+        // Should NOT contain generic placeholders
+        assert!(!result.contains("cargo txt show my_crate::SomeStruct"));
+        assert!(!result.contains("cargo txt show my_crate::SomeTrait"));
+        assert!(!result.contains("cargo txt show my_crate::SomeEnum"));
+        // H1 heading uses the same crate name
+        assert!(result.starts_with("# my_crate"));
+        // Items also use the same crate name prefix
+        assert!(result.contains("- my_crate::Error"));
+    }
+
+    #[test]
+    fn format_all_md_usage_instructions_multiple_sections() {
+        let content = "# List of all items\n\n### Structs\n\n- Error\n- Config\n\n### Traits\n\n- Serialize\n- Deserialize\n\n### Enums\n\n- Value\n\n### Constants\n\n- VERSION";
+        let result = format_all_md("serde", content);
+        // Usage instructions should include first items from each section (up to 3)
+        assert!(result.contains("cargo txt show serde::Error"));
+        assert!(result.contains("cargo txt show serde::Serialize"));
+        assert!(result.contains("cargo txt show serde::Value"));
+        // Should NOT include the 4th section's first item (Constants)
+        assert!(!result.contains("cargo txt show serde::VERSION"));
+        // Should still list all items in the sections
+        assert!(result.contains("- serde::Error"));
+        assert!(result.contains("- serde::Config"));
+        assert!(result.contains("- serde::Serialize"));
+        assert!(result.contains("- serde::Deserialize"));
+        assert!(result.contains("- serde::Value"));
+        assert!(result.contains("- serde::VERSION"));
+    }
+
+    #[test]
+    fn format_all_md_usage_instructions_fallback_no_sections() {
+        let content = "# List of all items\n\nNo items here";
+        let result = format_all_md("my_crate", content);
+        // When no sections with items exist, fall back to generic example
+        assert!(result.contains("cargo txt show my_crate::SomeItem"));
+        // Should NOT contain any section-specific items
+        assert!(!result.contains("cargo txt show my_crate::Error"));
+        assert!(!result.contains("cargo txt show my_crate::Struct"));
+    }
 
     ///////////////////////////////////////////////////////////////////////////
     // extract_item_mappings tests

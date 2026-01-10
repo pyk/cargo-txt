@@ -25,6 +25,9 @@ pub fn list(crate_name: &str) -> Result<()> {
 
     build::if_needed(crate_name)?;
 
+    let path_name = read_crate_path_name(crate_name)?;
+    debug!("Using crate path name: {}", path_name);
+
     let markdown_path = resolve_all_md_path(crate_name)?;
     debug!("Resolved markdown path: {:?}", markdown_path);
 
@@ -68,6 +71,26 @@ fn resolve_all_md_path(crate_name: &str) -> Result<PathBuf> {
 
     debug!("Resolved all.md path: {:?}", all_md_path);
     Ok(all_md_path)
+}
+
+/// Read crate path name from name file.
+///
+/// Reads the crate directory name (source of truth) from docmd/<crate>/name,
+/// which was saved during build.
+fn read_crate_path_name(crate_name: &str) -> Result<String> {
+    let metadata = cargo::metadata()?;
+
+    let name_file = PathBuf::from(&metadata.target_directory)
+        .join("docmd")
+        .join(crate_name)
+        .join("name");
+
+    let path_name = fs::read_to_string(&name_file)
+        .with_context(|| format!("failed to read crate name file '{}'", name_file.display()))?
+        .trim()
+        .to_string();
+    debug!("Read crate path name from file: {}", path_name);
+    Ok(path_name)
 }
 
 ///////////////////////////////////////////////////////////////////////////////

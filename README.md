@@ -107,6 +107,49 @@ cargo txt list serde
 2. Checks if markdown documentation exists (auto-builds if needed)
 3. Reads and displays `all.md` (master index of all items)
 
+**Output Format:**
+
+The list command displays formatted output with:
+
+- Crate name as H1 heading at the top
+- All list items prefixed with the crate name (e.g., `serde::Error`)
+- Usage instructions at the bottom with `cargo txt show` examples
+
+Example output for `cargo txt list serde`:
+
+````markdown
+# serde
+
+List of all items
+
+### Structs
+
+- serde::Error
+- serde::de::IgnoredAny
+- serde::ser::StdError
+
+### Traits
+
+- serde::Serialize
+- serde::Deserialize
+
+## Usage
+
+To view documentation for a specific item, use the `show` command:
+
+```shell
+cargo txt show <ITEM_PATH>
+```
+````
+
+Examples:
+
+- Show struct: `cargo txt show serde::SomeStruct`
+- Show trait: `cargo txt show serde::SomeTrait`
+- Show enum: `cargo txt show serde::SomeEnum`
+
+````
+
 **Auto-Build:**
 
 The list command automatically builds documentation if it doesn't exist. You
@@ -118,7 +161,7 @@ Show and view crate documentation:
 
 ```shell
 cargo txt show <ITEM_PATH>
-```
+````
 
 **Arguments:**
 

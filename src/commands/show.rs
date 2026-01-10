@@ -35,7 +35,10 @@ pub fn show(item_path: &str) -> Result<()> {
 
     build::if_needed(&parsed.crate_name)?;
 
-    let markdown_path = resolve_markdown_path(&parsed)?;
+    let path_name = read_crate_path_name(&parsed.crate_name)?;
+    debug!("Using crate path name: {}", path_name);
+
+    let markdown_path = resolve_markdown_path(&parsed, &path_name)?;
     debug!("Resolved markdown path: {:?}", markdown_path);
 
     let markdown_content = fs::read_to_string(&markdown_path)
@@ -80,12 +83,32 @@ fn parse_item_path(item_path: &str) -> Result<ParsedItemPath> {
     })
 }
 
+/// Read crate path name from name file.
+///
+/// Reads the crate directory name (source of truth) from docmd/<crate>/name,
+/// which was saved during build.
+fn read_crate_path_name(crate_name: &str) -> Result<String> {
+    let metadata = cargo::metadata()?;
+
+    let name_file = PathBuf::from(&metadata.target_directory)
+        .join("docmd")
+        .join(crate_name)
+        .join("name");
+
+    let path_name = fs::read_to_string(&name_file)
+        .with_context(|| format!("failed to read crate name file '{}'", name_file.display()))?
+        .trim()
+        .to_string();
+    debug!("Read crate path name from file: {}", path_name);
+    Ok(path_name)
+}
+
 /// Resolve the markdown file path for a parsed item path.
 ///
-/// If no item is specified, returns the path to all.md (master index).
+/// If no item is specified, returns the path to index.md (crate overview).
 /// If an item is specified, looks up the item in all.html mappings and
 /// returns the corresponding markdown file path.
-fn resolve_markdown_path(parsed: &ParsedItemPath) -> Result<PathBuf> {
+fn resolve_markdown_path(parsed: &ParsedItemPath, path_name: &str) -> Result<PathBuf> {
     let metadata = cargo::metadata()?;
     let docmd_dir = PathBuf::from(&metadata.target_directory).join("docmd");
     let crate_docmd_dir = docmd_dir.join(&parsed.crate_name);
@@ -99,9 +122,10 @@ fn resolve_markdown_path(parsed: &ParsedItemPath) -> Result<PathBuf> {
         Some(item) => item,
     };
 
+    // HTML directory created by cargo doc uses underscores from path_name
     let html_dir = PathBuf::from(&metadata.target_directory)
         .join("doc")
-        .join(&parsed.crate_name);
+        .join(path_name);
 
     let all_html_path = html_dir.join("all.html");
 
@@ -116,14 +140,18 @@ fn resolve_markdown_path(parsed: &ParsedItemPath) -> Result<PathBuf> {
         commands::build::extract_item_mappings(&parsed.crate_name, &all_html_content)?;
     trace!("Generated {} item mappings", item_mappings.len());
 
+    // Use parsed.crate_name for Rust path lookup to match item mappings
     let full_item_path = format!("{}::{}", parsed.crate_name, parsed_item);
     trace!("Looking up item path: {}", full_item_path);
+
+    // Preserve original user input format for error messages
+    let user_item_path = format!("{}::{}", parsed.crate_name, parsed_item);
 
     let html_path = match item_mappings.get(&full_item_path) {
         Some(p) => p,
         None => bail!(
             r#"could not resolve item path '{}'. Please ensure the item exists in the crate and try: `cargo txt build {}`"#,
-            full_item_path,
+            user_item_path,
             parsed.crate_name
         ),
     };
@@ -204,5 +232,39 @@ mod tests {
         let result = parse_item_path("serde::Error::").unwrap();
         assert_eq!(result.crate_name, "serde");
         assert_eq!(result.item, Some("Error::".to_string()));
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Error message format preservation tests
+
+    #[test]
+    fn error_message_preserves_user_input_format() {
+        // This test verifies that when a user provides a crate name with hyphens
+        // (e.g., rustdoc-types), the error message preserves that format instead
+        // of converting to underscores (rustdoc_types).
+        let parsed = ParsedItemPath {
+            crate_name: "rustdoc-types".to_string(),
+            item: Some("Abi".to_string()),
+        };
+
+        // The parsed crate name should preserve the original hyphen format
+        assert_eq!(parsed.crate_name, "rustdoc-types");
+
+        // The user_item_path should preserve the original format for error messages
+        let user_item_path = format!("{}::{}", parsed.crate_name, parsed.item.as_ref().unwrap());
+        assert_eq!(user_item_path, "rustdoc-types::Abi");
+
+        // Verify that underscores are also preserved
+        let parsed_underscores = ParsedItemPath {
+            crate_name: "rustdoc_types".to_string(),
+            item: Some("Abi".to_string()),
+        };
+        assert_eq!(parsed_underscores.crate_name, "rustdoc_types");
+        let user_item_path_underscores = format!(
+            "{}::{}",
+            parsed_underscores.crate_name,
+            parsed_underscores.item.as_ref().unwrap()
+        );
+        assert_eq!(user_item_path_underscores, "rustdoc_types::Abi");
     }
 }
