@@ -51,9 +51,9 @@ Separate crate name and library name throughout the system:
 
 ### Dependency Investigation
 
-- [ ] Examine `extract_item_mappings` to understand current item-to-file mapping
-- [ ] Check error handling for missing documentation directories
-- [ ] Review how library name is extracted from cargo doc output
+- [x] Examine `extract_item_mappings` to understand current item-to-file mapping
+- [x] Check error handling for missing documentation directories
+- [x] Review how library name is extracted from cargo doc output
 
 ### Code Locations to Check
 
@@ -69,7 +69,7 @@ Separate crate name and library name throughout the system:
 
 #### Define Metadata Structure
 
-- [ ] Add `CrateDocMetadata` struct to `src/commands/build.rs`:
+- [x] Add `CrateDocMetadata` struct to `src/commands/build.rs`:
 
 ```rust
 #[derive(Debug, Serialize, Deserialize)]
@@ -80,64 +80,64 @@ struct CrateDocMetadata {
 }
 ```
 
-- [ ] Add `serde` and `serde_json` dependencies if not present
+- [x] Add `serde` and `serde_json` dependencies if not present
 
 #### Update Build Command
 
-- [ ] Modify `build` function to (after `cargo::doc` finishes and returns
+- [x] Modify `build` function to (after `cargo::doc` finishes and returns
       `html_dir`):
     - Extract library name from `html_dir.file_name()` (already doing this)
     - Create output directory using library name: `target/docmd/<lib_name>/`
     - Generate `CrateDocMetadata` with crate_name, lib_name, and item_map
     - Save `metadata.json` to `target/docmd/<lib_name>/metadata.json`
-- [ ] Remove `save_crate_path_name` function (no longer needed)
-- [ ] Remove any other unused functions from build.rs
-- [ ] Update `extract_item_mappings` to:
+- [x] Remove `save_crate_path_name` function (no longer needed)
+- [x] Remove any other unused functions from build.rs
+- [x] Update `extract_item_mappings` to:
     - Accept library name instead of crate name for prefixing
     - Generate full paths like `rustdoc_types::AssocItemConstraint` (not
       `rustdoc-types::AssocItemConstraint`)
-- [ ] Remove `if_needed` function (no longer needed, show and list commands do
+- [x] Remove `if_needed` function (no longer needed, show and list commands do
       not auto-build)
 
 #### Update Show Command
 
-- [ ] Modify `parse_item_path` to:
+- [x] Modify `parse_item_path` to:
     - Parse input as `lib_name::item_path` (rename from crate_name)
     - Validate library name format
-- [ ] Replace `resolve_markdown_path` with new logic:
+- [x] Replace `resolve_markdown_path` with new logic:
     - Attempt to read and parse `target/docmd/<lib_name>/metadata.json`
     - If file not found, return error with available crates list
     - Look up `lib_name::item_path` in item_map
     - If not found, error suggesting `cargo txt list <crate_name>`
     - Read and display the found file
-- [ ] Update error messages:
+- [x] Update error messages:
     - When item not found in item_map, suggest `cargo txt list <crate_name>`
       where crate_name comes from metadata
     - When metadata not found, list available crate names from cargo metadata
-- [ ] Remove `read_crate_path_name` function (no longer needed)
-- [ ] Remove any other unused functions from show.rs
+- [x] Remove `read_crate_path_name` function (no longer needed)
+- [x] Remove any other unused functions from show.rs
 
 #### Update List Command
 
-- [ ] Modify list command to use library name input (similar to show command)
-- [ ] Update error handling:
+- [x] Modify list command to use library name input (similar to show command)
+- [x] Update error handling:
     - Attempt to read `target/docmd/<lib_name>/metadata.json`
     - If file not found, return error with available crates list
     - Read and display `target/docmd/<lib_name>/all.md` directly
-- [ ] Remove `read_crate_path_name` function (no longer needed)
-- [ ] Remove `validate_crate_name` function (no longer needed, library name
+- [x] Remove `read_crate_path_name` function (no longer needed)
+- [x] Remove `validate_crate_name` function (no longer needed, library name
       validation in parse)
-- [ ] Remove any other unused functions from list.rs
+- [x] Remove any other unused functions from list.rs
 
 ### Documentation Updates
 
-- [ ] Update README.md:
+- [x] Update README.md:
     - Add section explaining crate name vs library name concept
     - Update build command examples to clarify crate name input
     - Update show command examples to use library name
     - Update list command examples to clarify behavior
     - Remove all auto-build references from show and list command sections
-- [ ] Update DOCS.md:
+- [x] Update DOCS.md:
     - Add crate name vs library name definition section
     - Update build command documentation to explain output directory naming
     - Update show command documentation to explain library name input
@@ -149,25 +149,25 @@ struct CrateDocMetadata {
 
 #### Add New Tests
 
-- [ ] Add tests for metadata generation in build command:
+- [x] Add tests for metadata generation in build command:
     - Assert metadata.json exists at correct path
     - Assert crate_name field matches input crate name
     - Assert lib_name field matches extracted library name
     - Assert item_map contains expected entries with library name prefix
-- [ ] Add tests for show command library name parsing:
+- [x] Add tests for show command library name parsing:
     - Assert valid library name is extracted from input
     - Assert item path is correctly parsed
     - Assert error on invalid library name format
-- [ ] Add tests for show command metadata lookup:
+- [x] Add tests for show command metadata lookup:
     - Assert correct file path is found for known item
     - Assert item_map keys use library name prefix (e.g., `rustdoc_types::Item`)
-- [ ] Add tests for error when metadata file doesn't exist:
+- [x] Add tests for error when metadata file doesn't exist:
     - Assert error message contains library name
     - Assert error message lists available crates from cargo metadata
-- [ ] Add tests for error when item not found in metadata:
+- [x] Add tests for error when item not found in metadata:
     - Assert error message suggests list command with crate_name from metadata
     - Assert error shows crate name (not library name)
-- [ ] Add tests for crate names with hyphens vs library names with underscores:
+- [x] Add tests for crate names with hyphens vs library names with underscores:
     - Assert build with `rustdoc-types` creates `rustdoc_types` directory
     - Assert metadata contains crate_name="rustdoc-types" and
       lib_name="rustdoc_types"
@@ -176,35 +176,35 @@ struct CrateDocMetadata {
 
 #### Update Existing Tests
 
-- [ ] Update `extract_item_mappings` tests to use library name prefix
-- [ ] Update show command tests to use library names
-- [ ] Update build command tests to verify output directory naming
-- [ ] Remove tests for `save_crate_path_name` and `read_crate_path_name`
+- [x] Update `extract_item_mappings` tests to use library name prefix
+- [x] Update show command tests to use library names
+- [x] Update build command tests to verify output directory naming
+- [x] Remove tests for `save_crate_path_name` and `read_crate_path_name`
       functions
 
 ## Test Plan
 
 ### Verification Tests
 
-- [ ] Build crate with hyphenated name (e.g., `rustdoc-types`)
-- [ ] Verify output directory uses underscored name:
+- [x] Build crate with hyphenated name (e.g., `rustdoc-types`)
+- [x] Verify output directory uses underscored name:
       `target/docmd/rustdoc_types/`
-- [ ] Verify `metadata.json` exists and contains correct crate name and item map
-- [ ] Run `cargo txt show rustdoc_types::Item` (library name with underscore)
-- [ ] Verify show command correctly resolves and displays item
-- [ ] Run `cargo txt show rustdoc-types::Item` (crate name with hyphen)
-- [ ] Verify this returns error about library name not built
-- [ ] Run `cargo txt list rustdoc-types` (crate name)
-- [ ] Verify list works with crate name (backward compatibility)
-- [ ] Run `cargo txt list rustdoc_types` (library name)
-- [ ] Verify list works with library name
+- [x] Verify `metadata.json` exists and contains correct crate name and item map
+- [x] Run `cargo txt show rustdoc_types::Item` (library name with underscore)
+- [x] Verify show command correctly resolves and displays item
+- [x] Run `cargo txt show rustdoc-types::Item` (crate name with hyphen)
+- [x] Verify this returns error about library name not built
+- [x] Run `cargo txt list rustdoc-types` (crate name)
+- [x] Verify list works with crate name (backward compatibility)
+- [x] Run `cargo txt list rustdoc_types` (library name)
+- [x] Verify list works with library name
 
 ### Regression Tests
 
-- [ ] Test build command with simple crate name (no hyphens/underscores)
-- [ ] Test show command with nested paths: `crate::module::Type`
-- [ ] Test error when item doesn't exist
-- [ ] Verify all existing tests pass
+- [x] Test build command with simple crate name (no hyphens/underscores)
+- [x] Test show command with nested paths: `crate::module::Type`
+- [x] Test error when item doesn't exist
+- [x] Verify all existing tests pass
 
 ## Structure After Changes
 

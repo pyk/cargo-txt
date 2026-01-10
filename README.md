@@ -19,10 +19,9 @@
 
 ## Getting started
 
-> [!WARNING]
+> [!IMPORTANT]
 >
-> `cargo-txt` is in early active development. Expect breaking changes on every
-> release.
+> `cargo-txt` is in early active development.
 
 `cargo-txt` is a cargo subcommand that your LLM or Coding Agents can use to
 access the crate documentation locally.
@@ -63,29 +62,17 @@ cargo txt show serde::Deserialize
 
 ## Why I'm building this
 
-I work with [coding agents](https://zed.dev/agentic-engineering) daily now, and
-I constantly hit the same wall. The agents try to help me write code, but they
-keep making mistakes because they're working from outdated or incomplete
-information in their training data. They hallucinate APIs that don't exist, miss
-important details, or suggest deprecated methods.
+Coding agents should use CLI for everything. Model Context Protocol servers are
+overkill.
 
-The problem gets worse with complex crates. An agent might think it knows a
-crate's API, but it's working with knowledge that's months or years out of date.
-This leads to wasted time debugging code that never had a chance of working
-correctly.
+I built `cargo-txt` to feed my coding agent with up-to-date context and reduce
+hallucination. It converts `cargo doc` HTML to markdown so agents can access
+actual crate documentation from my local machine, not training data or outdated
+information.
 
-I needed a way to give agents access to the actual documentation, the real,
-current docs locally. Not a cached version, not training data, but the latest
-documentation.
-
-That's why I built `cargo-txt`. It converts `cargo doc` HTML to markdown so
-coding agents can read and understand crate documentation directly from my local
-machine. No hallucinations, no outdated info, accurate, comprehensive
-documentation that matches exactly what I'm working with.
-
-Instead of agents guessing or working from stale knowledge, they now have full
-access to the complete documentation. Debugging becomes faster, code is more
-accurate, and the frustrating back-and-forth cycle of trial and error reduced.
+Agents get accurate, comprehensive documentation that matches exactly what I'm
+working with. No more guessing, no more stale APIs, no more debugging code based
+on hallucinated methods.
 
 ## Features
 

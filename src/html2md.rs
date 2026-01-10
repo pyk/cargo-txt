@@ -43,13 +43,17 @@ fn should_skip_node(node: ElementRef) -> bool {
     }
 
     match elem.attr("id") {
-        Some("copy-path") => return true,
+        Some("copy-path") | Some("implementors") | Some("implementors-list") => return true,
         _ => {}
     }
 
     let should_skip_class = match elem.attr("class") {
         Some(class) => {
-            class.contains("src") || class.contains("hideme") || class.contains("anchor")
+            class.contains("src")
+                || class.contains("hideme")
+                || class.contains("anchor")
+                || class.contains("rustdoc-breadcrumbs")
+                || class.contains("tooltip")
         }
         None => false,
     };
@@ -603,5 +607,86 @@ mod tests {
         let html = "<main><p><a href=\"struct.Crate.html\"><code>Crate</code></a> and <a href=\"struct.Enum.html\">Something</a></p></main>";
         let result = convert(html).unwrap();
         assert_eq!(result, "`Crate` and Something\n\n");
+    }
+
+    #[test]
+    fn convert_rustdoc_breadcrumbs_skipped() {
+        let html = r#"<main>
+            <div class="main-heading">
+                <div class="rustdoc-breadcrumbs">
+                    <a href="index.html">serde</a>
+                </div>
+                <h1>
+                    Trait
+                    <span class="trait">Deserializer</span>
+                </h1>
+            </div>
+        </main>"#;
+        let result = convert(html).unwrap();
+        assert_eq!(result, "# Trait Deserializer\n\n");
+    }
+
+    #[test]
+    fn convert_tooltip_skipped() {
+        let html = r##"<main>
+            <p>This example runs with edition 2021 <a href="#" class="tooltip" title="This example runs with edition 2021">ⓘ</a></p>
+        </main>"##;
+        let result = convert(html).unwrap();
+        assert_eq!(result, "This example runs with edition 2021\n\n");
+    }
+
+    #[test]
+    fn convert_implementors_section_skipped() {
+        let html = r##"<main>
+            <p>Some content</p>
+            <h2 id="implementors" class="section-header">
+                Implementors<a href="#implementors" class="anchor">§</a>
+            </h2>
+            <p>More content</p>
+        </main>"##;
+        let result = convert(html).unwrap();
+        assert_eq!(result, "Some content\n\nMore content\n\n");
+    }
+
+    #[test]
+    fn convert_implementors_list_skipped() {
+        let html = r#"<main>
+            <p>Some content</p>
+            <div id="implementors-list">
+                <p>This should not appear</p>
+            </div>
+            <p>More content</p>
+        </main>"#;
+        let result = convert(html).unwrap();
+        assert_eq!(result, "Some content\n\nMore content\n\n");
+    }
+
+    #[test]
+    fn convert_combined_rustdoc_elements_skipped() {
+        let html = r##"<main>
+            <div class="main-heading">
+                <div class="rustdoc-breadcrumbs">
+                    <a href="index.html">serde</a>
+                </div>
+                <h1>
+                    Trait
+                    <span class="trait">Serializer</span>
+                </h1>
+            </div>
+            <p>Description text</p>
+            <h2 id="implementors" class="section-header">
+                Implementors<a href="#implementors" class="anchor">§</a>
+            </h2>
+            <div id="implementors-list">
+                <p>Implementor details</p>
+            </div>
+            <a href="#" class="tooltip" title="Tooltip">ⓘ</a>
+            <p>End content</p>
+        </main>"##;
+        let result = convert(html).unwrap();
+        assert_eq!(
+            result,
+            "# Trait Serializer\n\nDescription text\n\nEnd content\n\n"
+        );
     }
 }
