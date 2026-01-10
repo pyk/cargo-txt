@@ -17,157 +17,101 @@ Use it as a cargo subcommand:
 cargo txt --help
 ```
 
+## Crate Name vs Library Name
+
+cargo-txt distinguishes between two types of names that often differ due to
+Rust's identifier rules:
+
+### Crate Name
+
+The dependency name from `Cargo.toml`. For example: `rustdoc-types`
+
+- Available from `cargo metadata`
+- Used for: `cargo txt build <crate>`
+- Often uses hyphens to separate words (crates.io convention)
+- Examples: `rustdoc-types`, `serde-json`, `actix-web`
+
+### Library Name
+
+The root namespace name from `cargo doc` output. For example: `rustdoc_types`
+
+- Extracted from cargo doc output directory name
+- Used for: `cargo txt show <lib_name>::<item>` and `cargo txt list <name>`
+- Always uses underscores (Rust identifier syntax)
+- Matches the name you use in Rust code paths
+- Examples: `rustdoc_types`, `serde_json`, `actix_web`
+
+### Why This Distinction Matters
+
+When you add a dependency to `Cargo.toml`:
+
+```toml
+[dependencies]
+rustdoc-types = "0.57"
+```
+
+Cargo generates documentation using the library name `rustdoc_types`
+(underscores), not the crate name `rustdoc-types` (hyphens). This is because:
+
+1. **Rust identifier rules**: Rust identifiers cannot contain hyphens
+2. **Cargo's conversion**: Cargo automatically converts hyphens to underscores
+   when generating the library name
+3. **Code references**: Your Rust code uses underscores:
+   `use rustdoc_types::Item;`
+
+### Command Usage
+
+| Command                             | Name Type    | Example                              |
+| ----------------------------------- | ------------ | ------------------------------------ |
+| `cargo txt build <crate>`           | Crate name   | `cargo txt build rustdoc-types`      |
+| `cargo txt list <name>`             | Library name | `cargo txt list rustdoc_types`       |
+| `cargo txt show <lib_name>::<item>` | Library name | `cargo txt show rustdoc_types::Item` |
+
+### Practical Examples
+
+```shell
+# Build using crate name (from Cargo.toml)
+cargo txt build rustdoc-types
+
+# List using library name
+cargo txt list rustdoc_types
+
+# Show using library name (required)
+cargo txt show rustdoc_types::Item
+
+# INCORRECT: Using crate name in list or show command will fail
+cargo txt list rustdoc-types
+# Error: Documentation for 'rustdoc-types' is not built yet.
+
+cargo txt show rustdoc-types::Item
+# Error: failed to read metadata file 'target/docmd/rustdoc-types/metadata.json'
+```
+
+### Output Directory Structure
+
+The output directory uses the **library name**, not the crate name:
+
+```
+target/docmd/rustdoc_types/    # Library name (underscores)
+├── metadata.json               # Contains crate_name and lib_name
+├── index.md                    # Crate overview
+├── all.md                      # Master index
+└── struct.Item.md              # Item documentation
+```
+
+The `metadata.json` file contains both names:
+
+```json
+{
+    "crate_name": "rustdoc-types",
+    "lib_name": "rustdoc_types",
+    "item_map": {
+        "rustdoc_types::Item": "struct.Item.html"
+    }
+}
+```
+
 ## Commands
-
-### list
-
-List all items in a crate:
-
-```shell
-cargo txt list <CRATE>
-```
-
-**Arguments:**
-
-- `<CRATE>` - Crate name to list items for (required). Must be a simple crate
-  name without `::` separators.
-
-**Examples:**
-
-List all items in a crate:
-
-```shell
-cargo txt list serde
-```
-
-**How It Works:**
-
-1. Validates the input is a simple crate name (rejects paths with `::`)
-2. Checks if markdown documentation exists (auto-builds if needed)
-3. Reads and displays `all.md` (master index of all items)
-
-**Output Format:**
-
-The list command displays formatted output with:
-
-- Crate name as H1 heading at the top
-- All list items prefixed with the crate name (e.g., `serde::Error`)
-- Usage instructions at the bottom with `cargo txt show` examples
-
-Example output for `cargo txt list serde`:
-
-````markdown
-# serde
-
-List of all items
-
-### Structs
-
-- serde::Error
-- serde::de::IgnoredAny
-- serde::ser::StdError
-
-### Traits
-
-- serde::Serialize
-- serde::Deserialize
-
-## Usage
-
-To view documentation for a specific item, use the `show` command:
-
-```shell
-cargo txt show <ITEM_PATH>
-```
-````
-
-Examples:
-
-- Show struct: `cargo txt show serde::SomeStruct`
-- Show trait: `cargo txt show serde::SomeTrait`
-- Show enum: `cargo txt show serde::SomeEnum`
-
-**Auto-Build:**
-
-The list command automatically builds documentation if it doesn't exist. You
-don't need to run `cargo txt build` separately. It checks for the existence of
-`target/docmd/<crate>/all.md` and triggers a build if the file is missing.
-
-**Error Handling:**
-
-If you provide a path with `::`, you will see an error message:
-
-```
-Error: the list command only accepts crate names. Use 'cargo txt show serde::Error' to view specific items.
-```
-
-### show
-
-Show and view crate documentation:
-
-```shell
-cargo txt show <ITEM_PATH>
-```
-
-**Arguments:**
-
-- `<ITEM_PATH>` - Item path to show (required). Can be:
-    - Crate name only (e.g., `serde`): displays crate overview (index.md)
-    - Full item path (e.g., `serde::Error`, `serde::ser::StdError`): displays
-      specific item documentation
-
-**Examples:**
-
-View crate overview:
-
-```shell
-cargo txt show serde
-```
-
-View specific item documentation:
-
-```shell
-cargo txt show serde::Error
-cargo txt show serde::ser::StdError
-```
-
-**How It Works:**
-
-1. Parses the item path to extract crate name and optional item
-2. Checks if markdown documentation exists (auto-builds if needed)
-3. If item path is just a crate name: reads and displays `index.md` (crate
-   overview)
-4. If item path includes modules/items:
-    - Reads `all.html` to extract item mappings
-    - Looks up the exact HTML file for the requested item
-    - Converts HTML path to markdown path and displays contents
-
-**Auto-Build:**
-
-The show command automatically builds documentation if it doesn't exist. You
-don't need to run `cargo txt build` separately. It checks for the existence of
-`target/docmd/<crate>/all.md` and triggers a build if the file is missing.
-
-**Error Handling:**
-
-If you request a crate that is not installed, you will see an error message:
-
-```
-Error: Crate 'random-crate' is not an installed dependency.
-
-Available crates: clap, rustdoc-types, serde, serde_json, tempfile
-
-Only installed dependencies can be built. Add the crate to Cargo.toml as a dependency first.
-```
-
-If you request an item that doesn't exist, you will see:
-
-```
-Error: Could not resolve item path 'serde::NonExistent'.
-
-Attempted paths:
-  - /path/to/target/docmd/serde/struct.NonExistent.md
-```
 
 ### build
 
@@ -179,28 +123,38 @@ cargo txt build <CRATE>
 
 **Arguments:**
 
-- `<CRATE>` - Crate name to build documentation for (required)
+- `<CRATE>` - Crate name to build documentation for (required). This is the
+  dependency name from `Cargo.toml` (e.g., `rustdoc-types`).
 
 **Examples:**
 
-Build documentation for the serde crate:
+Build documentation for the rustdoc-types crate:
 
 ```shell
-cargo txt build serde
+cargo txt build rustdoc-types
 ```
 
 Output:
 
 ```
-Generated markdown: /path/to/project/target/docmd/serde/index.md
-Generated markdown: /path/to/project/target/docmd/serde/all.md
-Generated markdown for 42 items
+✓ Built documentation for rustdoc_types (55 items)
+  Run `cargo txt list rustdoc_types` to see all items
 ```
 
-**Output Location:**
+**Output Directory Structure:**
 
-Markdown files are placed in `target/docmd/<crate>/`. The target directory is
-determined by cargo metadata. The following files are generated:
+The output directory uses the **library name** (from `cargo doc` output), not
+the crate name. For example, building `rustdoc-types` creates:
+
+```
+target/docmd/rustdoc_types/    # Library name directory (underscores)
+├── metadata.json               # Contains crate_name, lib_name, and item_map
+├── index.md                    # Crate overview
+├── all.md                      # Master index of all items
+└── struct.Item.md              # Individual item markdown files
+```
+
+The following files are generated:
 
 - `all.md` - Master index of all items (from `all.html`)
 - `index.md` - Crate overview (from `index.html`)
@@ -238,16 +192,184 @@ Only installed dependencies can be built. Add the crate to Cargo.toml as a depen
 11. Extracts item mappings from `all.html` (full Rust paths to HTML file paths)
 12. Generates markdown for each individual item, preserving directory structure
 
-**Item Mapping:**
+**Item Mapping and Metadata:**
 
 During build, the command parses `all.html` to extract mappings between full
-Rust paths and HTML file paths. For example:
+Rust paths and HTML file paths, then saves them in `metadata.json`. For example:
 
-- `serde::Error` -> `struct.Error.html`
-- `serde::ser::StdError` -> `ser/trait.StdError.html`
+```json
+{
+    "crate_name": "rustdoc-types",
+    "lib_name": "rustdoc_types",
+    "item_map": {
+        "rustdoc_types::Item": "struct.Item.html",
+        "rustdoc_types::Abi": "enum.Abi.html"
+    }
+}
+```
 
 These mappings are used by the show command to quickly resolve item paths to
-markdown files.
+markdown files without parsing HTML at runtime.
+
+### list
+
+List all items in a crate:
+
+```shell
+cargo txt list <NAME>
+```
+
+**Arguments:**
+
+- `<NAME>` - Library name to list items for (required). This is the library name
+  from `cargo doc` output (e.g., `rustdoc_types`).
+
+**Examples:**
+
+List all items:
+
+```shell
+cargo txt list rustdoc_types
+```
+
+**How It Works:**
+
+1. Attempts to read `metadata.json` from `docmd/<lib_name>/metadata.json`
+2. If not found, shows error with available crate names from `cargo metadata`
+3. Reads and displays `all.md` from the library name directory
+
+**Output Format:**
+
+The list command displays formatted output with:
+
+- Library name as H1 heading at the top
+- All list items prefixed with the library name (e.g., `rustdoc_types::Item`)
+- Usage instructions at the bottom with `cargo txt show` examples
+
+Example output for `cargo txt list rustdoc_types`:
+
+````markdown
+# rustdoc_types
+
+List of all items
+
+### Structs
+
+- rustdoc_types::Item
+- rustdoc_types::Function
+- rustdoc_types::Struct
+
+### Enums
+
+- rustdoc_types::Type
+- rustdoc_types::ItemKind
+- rustdoc_types::Visibility
+
+## Usage
+
+To view documentation for a specific item, use the `show` command:
+
+```shell
+cargo txt show <ITEM_PATH>
+```
+````
+
+Examples:
+
+- Show struct: `cargo txt show rustdoc_types::Item`
+- Show enum: `cargo txt show rustdoc_types::Type`
+- Show trait: `cargo txt show rustdoc_types::Visibility`
+
+**Auto-Build:**
+
+The list command no longer auto-builds documentation. You must run
+`cargo txt build <crate>` first. This provides clearer error messages and better
+user control.
+
+**Error Handling:**
+
+If you provide a path with `::`, you will see an error message:
+
+```
+Error: Documentation for 'rustdoc-types::Item' is not built yet. Run 'cargo txt build <crate>` for one of the following crates: rustdoc-types, serde, serde_json
+```
+
+If the documentation doesn't exist, you will see:
+
+```
+Error: Documentation for 'unknown_crate' is not built yet. Run 'cargo txt build <crate>` for one of the following crates: rustdoc-types, serde, serde_json
+```
+
+### show
+
+Show and view crate documentation:
+
+```shell
+cargo txt show <ITEM_PATH>
+```
+
+**Arguments:**
+
+- `<ITEM_PATH>` - Item path to show (required). Can be:
+    - Library name only (e.g., `rustdoc_types`): displays crate overview
+      (index.md)
+    - Full item path with library name (e.g., `rustdoc_types::Item`,
+      `rustdoc_types::Abi`): displays specific item documentation
+
+**Important:** Use the library name (with underscores), not the crate name (with
+hyphens). For example:
+
+- Use `rustdoc_types::Item` (library name)
+- NOT `rustdoc-types::Item` (crate name - this will fail)
+
+**Examples:**
+
+View crate overview:
+
+```shell
+cargo txt show rustdoc_types
+```
+
+View specific item documentation:
+
+```shell
+cargo txt show rustdoc_types::Item
+cargo txt show rustdoc_types::Abi
+```
+
+**How It Works:**
+
+1. Parses the item path to extract library name and optional item
+2. Checks if markdown documentation exists by reading `metadata.json`
+3. If item path is just a library name: reads and displays `index.md` (crate
+   overview)
+4. If item path includes modules/items:
+    - Reads `metadata.json` to get the item map
+    - Looks up the exact markdown file for the requested item
+    - Displays the contents
+
+**Auto-Build:**
+
+The show command no longer auto-builds documentation. You must run
+`cargo txt build <crate>` first. This provides clearer error messages and better
+user control.
+
+**Error Handling:**
+
+If `metadata.json` doesn't exist, shows error with available crate names from
+`cargo metadata`:
+
+```
+Error: failed to read metadata file 'target/docmd/rustdoc_types/metadata.json'
+
+Documentation for library 'rustdoc_types' is not built yet. Run 'cargo txt build <crate>` for one of the following crates: rustdoc-types, serde, serde_json
+```
+
+If item not found in metadata, suggests list command with library name:
+
+```
+Error: could not resolve item path 'rustdoc_types::NonExistent'. The item may not exist. Try: `cargo txt list rustdoc_types` to see all available items.
+```
 
 ## Markdown Output Format
 
@@ -259,13 +381,13 @@ master index and individual item files.
 ```
 target/
 └── docmd/
-    └── <crate>/
-        ├── all.md                   # Master index of all items
-        ├── index.md                 # Crate overview
-        ├── struct.Error.md          # Individual item files
-        ├── trait.Serialize.md
-        └── ser/
-            └── trait.StdError.md   # Nested modules preserved
+    └── rustdoc_types/              # Library name directory (underscores)
+        ├── metadata.json           # Crate name and item mappings
+        ├── all.md                  # Master index of all items
+        ├── index.md                # Crate overview
+        ├── struct.Item.md          # Individual item files
+        ├── enum.Abi.md
+        └── ...
 ```
 
 ### HTML to Markdown Conversion
@@ -387,7 +509,7 @@ If you request a crate that is not an installed dependency, you will see:
 ```
 Error: Crate 'random-crate' is not an installed dependency.
 
-Available crates: clap, rustdoc-types, serde, serde_json, tempfile
+Available crates: anyhow, clap, clap-verbosity-flag, env_logger, log, rustdoc-types, scraper, serde, serde_json, tempfile
 
 Only installed dependencies can be built. Add the crate to Cargo.toml as a dependency first.
 ```
@@ -444,11 +566,14 @@ Error: invalid item path '::invalid'. Expected format: <crate> or <crate>::<item
 ## Current Limitations
 
 - **Build command**: Generates comprehensive markdown documentation including
-  `all.md`, `index.md`, and individual item files. The conversion handles common
-  HTML elements but may not cover all edge cases in rustdoc HTML.
-- **Show command**: Fully implemented. Displays crate documentation to stdout
-  with auto-build functionality. Shows crate overview (`index.md`) for
-  crate-level requests or specific item documentation for full item paths.
+  `metadata.json`, `all.md`, `index.md`, and individual item files. The
+  conversion handles common HTML elements but may not cover all edge cases in
+  rustdoc HTML. Output directory uses library name (e.g., `rustdoc_types`)
+  instead of crate name (e.g., `rustdoc-types`).
+- **Show command**: Fully implemented. Displays crate documentation to stdout.
+  Uses `metadata.json` for fast lookups. Shows crate overview (`index.md`) for
+  library name requests or specific item documentation for full item paths.
+  Requires `cargo txt build <crate>` to be run first.
 - **List command**: Fully implemented. Lists all items in a crate by displaying
-  the master index (`all.md`). Accepts only crate names (no `::` separators)
-  with auto-build functionality.
+  the master index (`all.md`). Accepts library names. Requires
+  `cargo txt build <crate>` to be run first.

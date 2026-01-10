@@ -37,19 +37,16 @@ pub fn convert(html: &str) -> Result<String> {
 fn should_skip_node(node: ElementRef) -> bool {
     let elem = node.value();
 
-    // Skip specific tags
     match elem.name() {
         "wbr" | "rustdoc-toolbar" | "script" => return true,
         _ => {}
     }
 
-    // Skip elements with specific IDs
     match elem.attr("id") {
         Some("copy-path") => return true,
         _ => {}
     }
 
-    // Skip elements with specific classes
     let should_skip_class = match elem.attr("class") {
         Some(class) => {
             class.contains("src") || class.contains("hideme") || class.contains("anchor")
@@ -68,7 +65,6 @@ fn should_skip_node(node: ElementRef) -> bool {
 /// This function walks through the HTML node tree and converts each element
 /// to its markdown equivalent, handling nested elements appropriately.
 fn convert_node(node: ElementRef, output: &mut String) {
-    // Skip rustdoc-specific UI elements
     if should_skip_node(node) {
         return;
     }
@@ -111,7 +107,6 @@ fn convert_node(node: ElementRef, output: &mut String) {
             output.push_str("\n\n");
         }
         "code" => {
-            // Check if this code is inside a pre element (code block)
             let is_code_block = node
                 .parent()
                 .and_then(|p| p.value().as_element())
@@ -123,7 +118,6 @@ fn convert_node(node: ElementRef, output: &mut String) {
                 convert_children(node, output);
                 output.push('`');
             } else {
-                // Inside pre, just output the text content
                 convert_children(node, output);
             }
         }
@@ -133,15 +127,12 @@ fn convert_node(node: ElementRef, output: &mut String) {
             output.push_str("\n```\n\n");
         }
         "div" | "section" | "article" | "header" | "footer" | "nav" | "aside" => {
-            // Structural elements - just process children
             convert_children(node, output);
         }
         "span" => {
-            // Structural elements - just process children
             convert_children(node, output);
         }
         "a" => {
-            // Render only inner content, not as a markdown link
             convert_children(node, output);
         }
         "ul" | "ol" => {
@@ -149,7 +140,6 @@ fn convert_node(node: ElementRef, output: &mut String) {
             output.push('\n');
         }
         "li" => {
-            // Handled by convert_list
             convert_list_item(node, output);
         }
         "dl" => {
@@ -157,13 +147,11 @@ fn convert_node(node: ElementRef, output: &mut String) {
             output.push('\n');
         }
         "dt" => {
-            // Handled by convert_definition_list
             output.push_str("- **");
             convert_children(node, output);
             output.push_str("**");
         }
         "dd" => {
-            // Handled by convert_definition_list
             output.push_str(": ");
             convert_children(node, output);
             output.push('\n');
@@ -187,7 +175,6 @@ fn convert_node(node: ElementRef, output: &mut String) {
             output.push_str("\n\n");
         }
         _ => {
-            // Unknown element - just process children
             convert_children(node, output);
         }
     }
@@ -200,7 +187,6 @@ fn convert_node(node: ElementRef, output: &mut String) {
 fn convert_children_normalized(node: ElementRef, output: &mut String) {
     let mut buffer = String::new();
     convert_children(node, &mut buffer);
-    // Normalize whitespace: collapse multiple spaces/newlines into single space
     let normalized: Vec<&str> = buffer.split_whitespace().collect();
     let normalized = normalized.join(" ");
     output.push_str(&normalized);
@@ -212,14 +198,11 @@ fn convert_children(node: ElementRef, output: &mut String) {
         match child.value() {
             scraper::Node::Text(text) => {
                 let mut text_str = text.text.to_string();
-                // Replace non-breaking spaces with regular spaces
                 text_str = text_str.replace('\u{a0}', " ");
                 text_str = text_str.replace("&nbsp;", " ");
-                // Skip whitespace-only text nodes
                 if text_str.trim().is_empty() {
                     continue;
                 }
-                // Convert markdown reference-style links [text][ref] to just text
                 let processed = process_text_links(&text_str);
                 output.push_str(&processed);
             }
@@ -277,7 +260,6 @@ fn convert_definition_list(node: ElementRef, output: &mut String) {
 
         match elem.name() {
             "dt" => {
-                // Flush previous term/description pair if exists
                 if current_term.is_some() && has_description {
                     output.push('\n');
                 }
@@ -308,7 +290,6 @@ fn convert_definition_list(node: ElementRef, output: &mut String) {
         }
     }
 
-    // Flush last term/description pair
     if current_term.is_some() && has_description {
         output.push('\n');
     }
@@ -324,11 +305,9 @@ fn process_text_links(text: &str) -> String {
 
     while let Some(c) = chars.next() {
         if c == '[' {
-            // Start of a potential link
             let mut link_text = String::new();
             let mut bracket_count = 1;
 
-            // Find the closing bracket for link text
             while let Some(next) = chars.peek() {
                 let next_char = *next;
                 if next_char == '[' {
@@ -348,7 +327,6 @@ fn process_text_links(text: &str) -> String {
                 }
             }
 
-            // Skip whitespace between the brackets
             while let Some(next) = chars.peek() {
                 let next_char = *next;
                 if next_char.is_whitespace() {
@@ -358,11 +336,9 @@ fn process_text_links(text: &str) -> String {
                 }
             }
 
-            // Check if this is a reference-style link (followed by another bracket)
             match chars.peek() {
                 Some(&'[') => {
-                    // This is [text][reference], skip the reference part
-                    chars.next(); // consume opening [
+                    chars.next();
                     let mut ref_bracket_count = 1;
                     for ref_next in chars.by_ref() {
                         if ref_next == '[' {
@@ -374,11 +350,9 @@ fn process_text_links(text: &str) -> String {
                             }
                         }
                     }
-                    // Output only the link text (no brackets)
                     result.push_str(&link_text);
                 }
                 _ => {
-                    // Not a reference-style link, output with brackets
                     result.push('[');
                     result.push_str(&link_text);
                     result.push(']');
@@ -391,9 +365,6 @@ fn process_text_links(text: &str) -> String {
 
     result
 }
-
-///////////////////////////////////////////////////////////////////////////////
-// Tests
 
 #[cfg(test)]
 mod tests {

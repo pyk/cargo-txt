@@ -83,7 +83,6 @@ pub fn doc(crate_name: &str) -> Result<PathBuf> {
         );
     }
 
-    // Parse stderr to find generated directory path (cargo doc writes to stderr)
     let stderr = String::from_utf8_lossy(&output.stderr);
     debug!("stderr: {:?}", stderr);
     doc_output_dir(&stderr)
@@ -106,7 +105,6 @@ fn doc_output_dir(stdout: &str) -> Result<PathBuf> {
     {
         Some(line) => line,
         None => {
-            // Create a preview of the output for debugging
             let output_preview = if stdout.len() > 500 {
                 format!("{}...", &stdout[..500])
             } else {
@@ -123,7 +121,6 @@ fn doc_output_dir(stdout: &str) -> Result<PathBuf> {
     match html_path.parent() {
         Some(parent) => Ok(parent.to_path_buf()),
         None => {
-            // Create a preview of the generated line for debugging
             let line_preview = if generated_line.len() > 200 {
                 format!("{}...", &generated_line[..200])
             } else {
@@ -137,15 +134,9 @@ fn doc_output_dir(stdout: &str) -> Result<PathBuf> {
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// Tests
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /////////////////////////////////////////////////////////////////////////////
-    // Output Parsing Tests
 
     #[test]
     fn doc_output_dir_extracts_directory_path() {

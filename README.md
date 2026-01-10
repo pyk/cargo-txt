@@ -35,15 +35,31 @@ cargo install txt
 
 Add this instruction to your coding agent:
 
-```markdown
-Use `cargo txt show <crate-item>` to access the crate documentation.
+````markdown
+Use `cargo txt` to access the crate documentation locally.
+
+The workflow is:
+
+1. Build documentation: `cargo txt build <crate>`
+2. List all items: `cargo txt list <lib_name>`
+3. View specific item: `cargo txt show <lib_name>::<item>`
 
 For example:
 
-- Access serde crate overview: `cargo txt show serde`
-- Access `serde::Deserialize` trait doc: `cargo txt show serde::Deserialize`
-- List all items in serde: `cargo txt list serde`
+```shell
+# Build the serde crate documentation
+cargo txt build serde
+
+# List all items in serde
+cargo txt list serde
+
+# View serde crate overview
+cargo txt show serde
+
+# View serde::Deserialize trait documentation
+cargo txt show serde::Deserialize
 ```
+````
 
 ## Why I'm building this
 
@@ -80,39 +96,97 @@ accurate, and the frustrating back-and-forth cycle of trial and error reduced.
 
 ## Usage
 
+### Build Command
+
+Generate markdown documentation for a crate:
+
+```shell
+cargo txt build <CRATE>
+```
+
+Arguments:
+
+- `<CRATE>` - Crate name to build documentation for (required). This is the
+  dependency name from `Cargo.toml` (e.g., `rustdoc-types`).
+
+This command generates HTML documentation using `cargo doc`, converts all HTML
+files to markdown, and writes them to the output directory. Output is placed in
+the target directory's `docmd` subdirectory (determined by cargo metadata).
+
+**Output Directory Structure:**
+
+The output directory uses the **library name** (from `cargo doc` output), not
+the crate name. For example, building `rustdoc-types` creates:
+
+```
+target/docmd/rustdoc_types/    # Library name directory (underscores)
+├── metadata.json               # Contains crate_name, lib_name, and item_map
+├── index.md                    # Crate overview
+├── all.md                      # Master index of all items
+└── struct.Item.md              # Individual item markdown files
+```
+
+**Note**: Only installed dependencies listed in your `Cargo.toml` can be built.
+You cannot build documentation for arbitrary crates from crates.io.
+
+Example:
+
+```shell
+# Build using crate name from Cargo.toml
+cargo txt build rustdoc-types
+```
+
+Output:
+
+```
+✓ Built documentation for rustdoc_types (55 items)
+  Run `cargo txt list rustdoc_types` to see all items
+```
+
+Error example:
+
+```shell
+$ cargo txt build random-crate
+Error: Crate 'random-crate' is not an installed dependency.
+
+Available crates: anyhow, clap, clap-verbosity-flag, env_logger, log, rustdoc-types, scraper, serde, serde_json, tempfile
+
+Only installed dependencies can be built. Add the crate to Cargo.toml as a dependency first.
+```
+
 ### List Command
 
 List all items in a crate:
 
 ```shell
-cargo txt list <CRATE>
+cargo txt list <NAME>
 ```
 
 **Arguments:**
 
-- `<CRATE>` - Crate name to list items for (required). Must be a simple crate
-  name without `::` separators.
+- `<NAME>` - Library name to list items for (required). This is the library name
+  from `cargo doc` output (e.g., `rustdoc_types`).
 
 **Examples:**
 
-List all items in a crate:
+List all items:
 
 ```shell
-cargo txt list serde
+cargo txt list rustdoc_types
 ```
 
 **How It Works:**
 
-1. Validates the input is a simple crate name (rejects paths with `::`)
-2. Checks if markdown documentation exists (auto-builds if needed)
-3. Reads and displays `all.md` (master index of all items)
+1. Attempts to read `metadata.json` from `docmd/<lib_name>/metadata.json`
+2. If not found, shows error with available crate names from `cargo metadata`
+3. Reads and displays `all.md` from the library name directory
 
 **Output Format:**
 
 The list command displays formatted output with:
 
-- Crate name as H1 heading at the top
-- All list items prefixed with the crate name (e.g., `serde::Error`)
+- Library name as H1 heading at the top
+- All list items prefixed with the library name (e.g., `rustdoc_types::Item`)
 - Usage instructions at the bottom with `cargo txt show` examples
 
 Example output for `cargo txt list serde`:
@@ -150,11 +224,6 @@ Examples:
 
 ````
 
-**Auto-Build:**
-
-The list command automatically builds documentation if it doesn't exist. You
-don't need to run `cargo txt build` separately.
-
 ### Show Command
 
 Show and view crate documentation:
@@ -166,40 +235,49 @@ cargo txt show <ITEM_PATH>
 **Arguments:**
 
 - `<ITEM_PATH>` - Item path to show (required). Can be:
-    - Crate name only (e.g., `serde`): displays crate overview (index.md)
-    - Full item path (e.g., `serde::Error`, `serde::ser::StdError`): displays
-      specific item documentation
+    - Library name only (e.g., `rustdoc_types`): displays crate overview
+      (index.md)
+    - Full item path with library name (e.g., `rustdoc_types::Item`,
+      `rustdoc_types::Abi`): displays specific item documentation
+
+**Important:** Use the library name (with underscores), not the crate name (with
+hyphens). For example:
+
+- Use `rustdoc_types::Item` (library name)
+- NOT `rustdoc-types::Item` (crate name - this will fail)
 
 **Examples:**
 
 View crate overview:
 
 ```shell
-cargo txt show serde
+cargo txt show rustdoc_types
 ```
 
 View specific item documentation:
 
 ```shell
-cargo txt show serde::Error
-cargo txt show serde::ser::StdError
+cargo txt show rustdoc_types::Item
+cargo txt show rustdoc_types::Abi
 ```
 
 **How It Works:**
 
-1. Parses the item path to extract crate name and optional item
-2. Checks if markdown documentation exists (auto-builds if needed)
-3. If item path is just a crate name: reads and displays `index.md` (crate
+1. Parses the item path to extract library name and optional item
+2. Checks if markdown documentation exists by reading `metadata.json`
+3. If item path is just a library name: reads and displays `index.md` (crate
    overview)
 4. If item path includes modules/items:
-    - Reads `all.html` to extract item mappings
-    - Looks up the exact HTML file for the requested item
-    - Converts HTML path to markdown path and displays contents
+    - Reads `metadata.json` to get the item map
+    - Looks up the exact markdown file for the requested item
+    - Displays the contents
 
-**Auto-Build:**
+**Error Handling:**
 
-The show command automatically builds documentation if it doesn't exist. You
-don't need to run `cargo txt build` separately.
+- If `metadata.json` doesn't exist, shows error with available crate names from
+  `cargo metadata`
+- If item not found in metadata, suggests `cargo txt list <lib_name>` where
+  lib_name comes from the metadata
 
 ### Verbosity
 
@@ -257,64 +335,21 @@ RUST_LOG=txt=debug,cargo=warn cargo txt build serde
 
 By default, cargo-txt shows only error messages.
 
-### Build Command
-
-Generate markdown documentation for a crate:
-
-```shell
-cargo txt build <CRATE>
-```
-
-Arguments:
-
-- `<CRATE>` - Crate name to build documentation for (required)
-
-This command generates HTML documentation using `cargo doc`, extracts the
-`<main>` element from `index.html`, converts it to markdown, and writes it to
-the output directory. Output is placed in the target directory's `docmd`
-subdirectory (determined by cargo metadata, typically
-`./target/docmd/<crate>/index.md`).
-
-**Note**: Only installed dependencies listed in your `Cargo.toml` can be built.
-You cannot build documentation for arbitrary crates from crates.io.
-
-Example:
-
-```shell
-cargo txt build serde
-```
-
-Output:
-
-```shell
-Generated markdown: /path/to/project/target/docmd/serde/index.md
-```
-
-Error example:
-
-```shell
-$ cargo txt build random-crate
-Error: Crate 'random-crate' is not an installed dependency.
-
-Available crates: clap, rustdoc-types, serde, serde_json, tempfile
-
-Only installed dependencies can be built. Add the crate to Cargo.toml as a dependency first.
-```
-
 ## Current Status
 
-- **Show command**: Fully implemented. Displays crate documentation to stdout.
-  Opens crate overview (`index.md`) for crate-level requests or specific item
-  documentation for full item paths. Auto-builds documentation when needed.
-- **List command**: Fully implemented. Lists all items in a crate by displaying
-  the master index (`all.md`). Accepts only crate names (no `::` separators).
-  Auto-builds documentation when needed.
 - **Build command**: Fully implemented. Generates HTML documentation using
   stable `cargo doc`, converts HTML files to markdown, and writes:
+    - `metadata.json` - Contains crate_name, lib_name, and item_map
     - `all.md` - Master index of all items from `all.html`
     - `index.md` - Crate overview from `index.html`
-    - Individual item markdown files (e.g., `struct.Error.md`,
-      `trait.Serialize.md`)
+    - Individual item markdown files (e.g., `struct.Item.md`,
+      `trait.Serialize.md`) Output directory uses library name (e.g.,
+      `rustdoc_types`) instead of crate name (e.g., `rustdoc-types`).
+- **List command**: Fully implemented. Lists all items in a crate by displaying
+  the master index (`all.md`). Accepts library names.
+- **Show command**: Fully implemented. Displays crate documentation to stdout.
+  Opens crate overview (`index.md`) for library name requests or specific item
+  documentation for full item paths. Uses metadata.json for fast lookups.
 
 ## Development
 

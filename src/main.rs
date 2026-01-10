@@ -51,16 +51,12 @@ enum Command {
 }
 
 fn main() -> Result<()> {
-    // 1. Collect arguments
     let mut args: Vec<String> = std::env::args().collect();
 
-    // 2. If called via `cargo txt`, Cargo appends subcommand name ("txt") as first arg.
-    // We need to remove it so our actual subcommands (build, open) are recognized.
     if args.len() > 1 && args[1] == "txt" {
         args.remove(1);
     }
 
-    // 3. Parse modified arguments using parse_from
     let args = Args::parse_from(&args);
 
     let verbosity_level = args.verbosity.log_level_filter().to_string();
