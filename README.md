@@ -68,8 +68,7 @@ actual crate documentation from my local machine, not training data or outdated
 information.
 
 Agents get accurate, comprehensive documentation that matches exactly what I'm
-working with. No more guessing, no more stale APIs, no more debugging code based
-on hallucinated methods.
+working with.
 
 ## Features
 
