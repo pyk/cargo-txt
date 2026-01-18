@@ -16,7 +16,7 @@ use commands::{build, list, show};
 #[derive(Parser)]
 #[command(name = "cargo txt")]
 #[command(bin_name = "cargo txt")]
-#[command(version = "0.1.0")]
+#[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(about = "A cargo doc for coding agents", long_about = None)]
 struct Args {
     #[command(flatten)]
@@ -42,11 +42,11 @@ enum Command {
         item_path: String,
     },
 
-    /// List all items in a crate.
+    /// List all items in a library.
     List {
-        /// Crate name (e.g., 'serde')
-        #[arg(value_name = "CRATE")]
-        crate_name: String,
+        /// Library name (e.g., 'serde')
+        #[arg(value_name = "LIBRARY")]
+        lib_name: String,
     },
 }
 
@@ -66,7 +66,7 @@ fn main() -> Result<()> {
     match args.command {
         Command::Build { crate_name } => build(&crate_name)?,
         Command::Show { item_path } => show(&item_path)?,
-        Command::List { crate_name } => list(&crate_name)?,
+        Command::List { lib_name } => list(&lib_name)?,
     }
 
     Ok(())
