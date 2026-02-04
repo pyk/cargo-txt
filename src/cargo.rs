@@ -3,11 +3,12 @@
 //! This module provides functions for executing cargo doc commands
 //! with proper error handling and HTML generation validation.
 
-use anyhow::{Context, Result, bail};
-use log::{debug, trace};
-use serde::Deserialize;
 use std::path::PathBuf;
 use std::process::Command;
+
+use anyhow::{Context, Result, bail};
+use serde::Deserialize;
+use tracing::{debug, trace};
 
 /// Cargo metadata output structure.
 ///

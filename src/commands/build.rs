@@ -3,13 +3,14 @@
 //! This module handles building documentation by executing cargo doc,
 //! converting the generated HTML to markdown, and writing the result.
 
-use anyhow::{Context, Result, bail, ensure};
-use log::{debug, info};
-use scraper::{Html, Selector};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result, bail, ensure};
+use scraper::{Html, Selector};
+use serde::{Deserialize, Serialize};
+use tracing::{debug, info};
 
 use crate::cargo;
 use crate::html2md;
@@ -109,7 +110,12 @@ fn validate_crate_name(crate_name: &str, cargo_metadata: &cargo::Metadata) -> Re
 ///
 /// This function reads all HTML files from the cargo doc output directory
 /// and builds metadata by parsing the all.html file.
-fn read_cargo_doc_output(cargo_doc_output_dir: &Path, crate_name: &str) -> Result<CargoDocOutput> {
+fn read_cargo_doc_output(
+    cargo_doc_output_dir: impl AsRef<Path>,
+    crate_name: &str,
+) -> Result<CargoDocOutput> {
+    let cargo_doc_output_dir = cargo_doc_output_dir.as_ref();
+
     debug!("Reading cargo doc output from: {:?}", cargo_doc_output_dir);
 
     let index_html_path = cargo_doc_output_dir.join("index.html");
@@ -191,9 +197,10 @@ fn extract_item_mappings_from_html(html: &str) -> Result<HashMap<String, String>
         mappings.insert(text, href.to_string());
     }
 
-    if mappings.is_empty() {
-        bail!("failed to find item mappings in documentation - no items found");
-    }
+    ensure!(
+        !mappings.is_empty(),
+        "failed to find item mappings in documentation - no items found"
+    );
 
     Ok(mappings)
 }

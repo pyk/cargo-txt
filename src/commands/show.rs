@@ -2,33 +2,33 @@
 //!
 //! This module provides the show command which displays crate documentation
 //! to stdout. Users can view the crate overview (index.md) or specific items
-//! by providing an item path.
-
-use crate::commands::build::CrateDocMetadata;
-use anyhow::{Context, Result, bail};
-use log::{debug, trace};
-use serde_json;
+//! by providing an item identifier.
 
 use std::fs;
 use std::path::PathBuf;
 
+use crate::commands::build::CrateDocMetadata;
+use anyhow::{Context, Result, bail, ensure};
+use serde_json;
+use tracing::{debug, trace};
+
 use crate::cargo;
 
-/// Parsed item path containing library name and optional item.
+/// Parsed item identifier containing library name and optional item.
 #[derive(Debug)]
-struct ParsedItemPath {
+struct ItemIdentifier {
     lib_name: String,
     item: Option<String>,
 }
 
 /// Show and display crate documentation.
 ///
-/// This function parses the item path, resolves the appropriate markdown file,
+/// This function parses the item identifier, resolves the appropriate markdown file,
 /// and prints its contents to stdout.
-pub fn show(item_path: &str) -> Result<()> {
-    debug!("Show command: item_path={}", item_path);
+pub fn show(item_identifier: &str) -> Result<()> {
+    debug!("Show command: item_identifier={}", item_identifier);
 
-    let parsed = parse_item_path(item_path)?;
+    let parsed = parse_item_identifier(item_identifier)?;
     trace!(
         "Parsed: lib_name={}, item={:?}",
         parsed.lib_name, parsed.item
@@ -45,13 +45,13 @@ pub fn show(item_path: &str) -> Result<()> {
                     .collect();
                 format!(
                     "Can't show '{}'. You should build one of the following crates first: {}",
-                    item_path,
+                    item_identifier,
                     available_crates.join(", ")
                 )
             }
             Err(_) => format!(
                 "Can't show '{}'. You may need to build the crate documentation first",
-                item_path
+                item_identifier
             ),
         }
     })?;
@@ -66,24 +66,22 @@ pub fn show(item_path: &str) -> Result<()> {
     Ok(())
 }
 
-/// Parse an item path into library name and optional item.
+/// Parse an item identifier into library name and optional item.
 ///
 /// Extracts the library name (first component before `::`) and the remaining
-/// item path (if any) from the full item path string.
-fn parse_item_path(item_path: &str) -> Result<ParsedItemPath> {
-    let mut parts = item_path.split("::");
+/// item identifier (if any) from the full item identifier string.
+fn parse_item_identifier(item_identifier: &str) -> Result<ItemIdentifier> {
+    let mut parts = item_identifier.split("::");
 
     let lib_name = match parts.next().filter(|s| !s.is_empty()) {
         Some(n) => n,
         None => bail!(
-            "invalid item path '{}'. Expected format: <lib_name> or <lib_name>::<item> (e.g., 'serde' or 'serde::Error').",
-            item_path
+            "invalid item identifier '{}'. Expected format: <lib_name> or <lib_name>::<item> (e.g., 'serde' or 'serde::Error').",
+            item_identifier
         ),
     };
 
-    if lib_name.is_empty() {
-        bail!("library name cannot be empty");
-    }
+    ensure!(!lib_name.is_empty(), "library name cannot be empty");
 
     let item: Vec<&str> = parts.collect();
     let item = if item.is_empty() {
@@ -94,18 +92,18 @@ fn parse_item_path(item_path: &str) -> Result<ParsedItemPath> {
 
     trace!("Parsed item path: lib_name={}, item={:?}", lib_name, item);
 
-    Ok(ParsedItemPath {
+    Ok(ItemIdentifier {
         lib_name: lib_name.to_string(),
         item,
     })
 }
 
-/// Resolve the markdown file path for a parsed item path.
+/// Resolve the markdown file path for a parsed item identifier.
 ///
 /// If no item is specified, returns the path to index.md (crate overview).
 /// If an item is specified, looks up the item in metadata.json and
 /// returns the corresponding markdown file path.
-fn resolve_markdown_path(parsed: &ParsedItemPath) -> Result<PathBuf> {
+fn resolve_markdown_path(parsed: &ItemIdentifier) -> Result<PathBuf> {
     let metadata = cargo::metadata()?;
     let docmd_dir = PathBuf::from(&metadata.target_directory).join("docmd");
     let lib_docmd_dir = docmd_dir.join(&parsed.lib_name);
@@ -159,66 +157,66 @@ mod tests {
 
     #[test]
     fn parse_simple_crate_name() {
-        let result = parse_item_path("serde").unwrap();
+        let result = parse_item_identifier("serde").unwrap();
         assert_eq!(result.lib_name, "serde");
         assert_eq!(result.item, None);
     }
 
     #[test]
     fn parse_item_path_single_item() {
-        let result = parse_item_path("serde::Error").unwrap();
+        let result = parse_item_identifier("serde::Error").unwrap();
         assert_eq!(result.lib_name, "serde");
         assert_eq!(result.item, Some("Error".to_string()));
     }
 
     #[test]
     fn parse_item_path_nested() {
-        let result = parse_item_path("serde::ser::StdError").unwrap();
+        let result = parse_item_identifier("serde::ser::StdError").unwrap();
         assert_eq!(result.lib_name, "serde");
         assert_eq!(result.item, Some("ser::StdError".to_string()));
     }
 
     #[test]
     fn parse_item_path_deeply_nested() {
-        let result = parse_item_path("serde::de::value::Error").unwrap();
+        let result = parse_item_identifier("serde::de::value::Error").unwrap();
         assert_eq!(result.lib_name, "serde");
         assert_eq!(result.item, Some("de::value::Error".to_string()));
     }
 
     #[test]
-    fn parse_item_path_invalid_leading_separator() {
-        let result = parse_item_path("::invalid");
+    fn parse_item_identifier_invalid_leading_separator() {
+        let result = parse_item_identifier("::invalid");
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
-        assert!(error_msg.contains("invalid item path '::invalid'"));
+        assert!(error_msg.contains("invalid item identifier '::invalid'"));
     }
 
     #[test]
     fn parse_item_path_empty_string() {
-        let result = parse_item_path("");
+        let result = parse_item_identifier("");
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
-        assert!(error_msg.contains("invalid item path ''"));
+        assert!(error_msg.contains("invalid item identifier ''"));
     }
 
     #[test]
     fn parse_item_path_only_separators() {
-        let result = parse_item_path("::");
+        let result = parse_item_identifier("::");
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
-        assert!(error_msg.contains("invalid item path '::'"));
+        assert!(error_msg.contains("invalid item identifier '::'"));
     }
 
     #[test]
     fn parse_item_path_trailing_separator() {
-        let result = parse_item_path("serde::Error::").unwrap();
+        let result = parse_item_identifier("serde::Error::").unwrap();
         assert_eq!(result.lib_name, "serde");
         assert_eq!(result.item, Some("Error::".to_string()));
     }
 
     #[test]
     fn error_message_preserves_user_input_format() {
-        let parsed = ParsedItemPath {
+        let parsed = ItemIdentifier {
             lib_name: "rustdoc-types".to_string(),
             item: Some("Abi".to_string()),
         };
@@ -228,7 +226,7 @@ mod tests {
         let user_item_path = format!("{}::{}", parsed.lib_name, parsed.item.as_ref().unwrap());
         assert_eq!(user_item_path, "rustdoc-types::Abi");
 
-        let parsed_underscores = ParsedItemPath {
+        let parsed_underscores = ItemIdentifier {
             lib_name: "rustdoc_types".to_string(),
             item: Some("Abi".to_string()),
         };

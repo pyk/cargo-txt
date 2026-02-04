@@ -3,14 +3,15 @@
 //! This tool converts rustdoc HTML output into markdown documentation designed
 //! for coding agents to browse and understand crate APIs.
 
+use anyhow::Result;
+use clap::{Parser, Subcommand};
+use clap_verbosity_flag::{InfoLevel, Verbosity};
+use commands::{build, list, show};
+use tracing::level_filters::LevelFilter;
+
 mod cargo;
 mod commands;
 mod html2md;
-
-use anyhow::Result;
-use clap::{Parser, Subcommand};
-use clap_verbosity_flag::Verbosity;
-use commands::{build, list, show};
 
 /// A cargo doc for coding agents
 #[derive(Parser)]
@@ -20,7 +21,7 @@ use commands::{build, list, show};
 #[command(about = "A cargo doc for coding agents", long_about = None)]
 struct Args {
     #[command(flatten)]
-    verbosity: Verbosity,
+    verbosity: Verbosity<InfoLevel>,
 
     #[command(subcommand)]
     command: Command,
@@ -37,9 +38,9 @@ enum Command {
 
     /// Show and display crate documentation.
     Show {
-        /// Item path (e.g., 'serde', 'serde::Error', 'serde::ser::StdError')
+        /// Item identifier (e.g., 'serde', 'serde::Error', 'serde::ser::StdError')
         #[arg(value_name = "ITEM")]
-        item_path: String,
+        item_identifier: String,
     },
 
     /// List all items in a library.
@@ -59,13 +60,22 @@ fn main() -> Result<()> {
 
     let args = Args::parse_from(&args);
 
-    let verbosity_level = args.verbosity.log_level_filter().to_string();
-    let env = env_logger::Env::default().default_filter_or(verbosity_level);
-    env_logger::Builder::from_env(env).init();
+    if args.verbosity.tracing_level_filter() == LevelFilter::TRACE {
+        tracing_subscriber::fmt()
+            .with_max_level(args.verbosity)
+            .init();
+    } else {
+        tracing_subscriber::fmt()
+            .compact()
+            .without_time()
+            .with_target(false)
+            .with_max_level(args.verbosity)
+            .init();
+    }
 
     match args.command {
         Command::Build { crate_name } => build(&crate_name)?,
-        Command::Show { item_path } => show(&item_path)?,
+        Command::Show { item_identifier } => show(&item_identifier)?,
         Command::List { lib_name } => list(&lib_name)?,
     }
 

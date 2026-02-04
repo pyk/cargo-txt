@@ -5,11 +5,12 @@
 //! crate names and rejects paths with `::` to provide clear separation from
 //! the show command.
 
-use anyhow::{Context, Result, bail};
-use log::{debug, trace};
-use serde_json;
 use std::fs;
 use std::path::PathBuf;
+
+use anyhow::{Context, Result, bail};
+use serde_json;
+use tracing::{debug, trace};
 
 use crate::cargo;
 use crate::commands::build::CrateDocMetadata;
