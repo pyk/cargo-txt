@@ -16,7 +16,7 @@ use commands::{build, list, show};
 #[derive(Parser)]
 #[command(name = "cargo txt")]
 #[command(bin_name = "cargo txt")]
-#[command(version = env!("CARGO_PKG_VERSION"))]
+#[command(version)]
 #[command(about = "A cargo doc for coding agents", long_about = None)]
 struct Args {
     #[command(flatten)]
