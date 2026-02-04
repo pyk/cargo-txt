@@ -348,11 +348,11 @@ fn save_doc(doc_output: DocOutput) -> Result<()> {
     let total_files = doc_output.files.len();
     let item_count = total_files.saturating_sub(3);
 
-    println!(
-        "✓ Built documentation for {} ({} items)",
+    info!(
+        "Built documentation for {} ({} items)",
         lib_name, item_count
     );
-    println!("  Run `cargo txt list {}` to see all items", lib_name);
+    info!("Run `cargo txt list {}` to see all items", lib_name);
 
     info!("Successfully saved documentation");
     Ok(())
