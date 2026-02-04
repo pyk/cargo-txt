@@ -23,6 +23,8 @@ anyhow = "1.0.100"
 
 [dev-dependencies]
 tempfile = "3.24.0"
+# for testing
+serde_path_to_error = "0.1.20"
 
 [lints.clippy]
 single_match = "allow"
