@@ -411,8 +411,6 @@ pub mod new_module;
 - {Observable outcome 2}
 - {Metric: All tests pass (N unit + N integration)}
 
-## Implementation Status: 🟡 NOT STARTED
-
 {Placeholder for updates during execution}
 
 ## Implementation Notes
@@ -468,9 +466,10 @@ work.}
 3. **Generate slug**: Create a slug from the title (lowercase, hyphens for
    spaces)
 4. **Create the file**: Use format `{SEQ}-{slug}.md`
-5. **Add frontmatter**: Include type: normal, title, seq, slug, created, status
-6. **Fill content**: Complete all sections with specific, actionable details
-7. **Save**: Write the file to `.zed/agent/plans/`
+5. Use time tool to get correct current time.
+6. **Add frontmatter**: Include type: normal, title, seq, slug, created, status.
+7. **Fill content**: Complete all sections with specific, actionable details
+8. **Save**: Write the file to `.zed/agent/plans/`
 
 ### Creating a Master Plan with Subplans
 
@@ -486,13 +485,14 @@ work.}
    status, and subplans array
 7. **Fill master content**: Provide high-level overview, not granular
    implementation details
-8. **For each subplan**: a. Assign a 2-digit ID based on execution order (01,
+8. Use time tool to get correct current time.
+9. **For each subplan**: a. Assign a 2-digit ID based on execution order (01,
    02, 03, etc.) b. Create subplan file: `{SEQ}-{slug}-{ID}.md` c. Add subplan
    frontmatter: type: subplan, title, seq, slug, subplan_id, parent, created,
    status d. Fill detailed content with granular implementation steps e. Ensure
    subplan scope is clear and actionable
-9. **Save all files**: Write the master plan and all subplans to
-   `.zed/agent/plans/`
+10. **Save all files**: Write the master plan and all subplans to
+    `.zed/agent/plans/`
 
 ### Example: Creating a Master Plan
 

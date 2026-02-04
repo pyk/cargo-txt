@@ -1,39 +1,164 @@
-# Rust Coding Guidelines
+# Rust Coding Guidelines: Documentation
 
 > [!IMPORTANT]
 >
-> Follow these guidelines strictly. Other Rust coding guidelines can be enforced
-> by running `rust-lint`.
+> Follow these guidelines strictly
 
-1. Avoid unnecessary parameter passing. Don't pass intermediate results used
-   only by one function. Let the callee generate what it needs internally.
-2. Test business logic, not language features. Don't test trait implementations,
-   method existence, or type properties. Focus on behavior, error handling, and
-   edge cases.
-3. Extract common test setup into helper functions to avoid duplication.
-4. Explain what and why in doc comments, not how. Comments must describe intent
-   and purpose, not implementation details.
-5. Use simple, clear language in documentation. Avoid jargon. Replace "utilize"
-   with "use", "facilitate" with "enable", "leverage" with "use".
-6. Document behavior and error conditions. Focus on what functions do and when
-   they fail. Include examples for non-obvious APIs.
-7. Chain error context at multiple levels in binary applications. Add context at
-   each layer to build clear error chains that help debugging.
-8. Write LLM-friendly error messages. Distinguish user errors from internal bugs
-   clearly. For user errors, explain what went wrong and suggest solutions. For
-   internal errors, state it's a bug and provide version, path, and details for
-   reporting.
-9. Use anyhow for binary error handling and thiserror for library error
-   handling. Binaries use dynamic errors and context chaining. Libraries use
-   structured error types as part of their public API.
-10. Define structured error types for libraries. Use explicit error enums as
-    part of your public API instead of dynamic errors.
-11. Provide static context in error variant fields. Include file paths, field
-    names, and operation details in error variant fields rather than building
-    them dynamically.
-12. Use three-level error hierarchy for libraries. Top-level errors group
-    operations with context. Low-level errors are context-free and reusable.
-13. Document error variants. Add doc comments to error types and variants
-    explaining when each error occurs.
-14. Avoid panics in public API. Never use unwrap(), expect(), or panic!() in
-    public functions. Always return Result<T> for fallible operations.
+## 1. Doc Comments as API References
+
+Doc comments must explain **what** and **why** (intent), not **how**
+(implementation). Every public item needs a doc comment. Every module file needs
+top-level `//!` documentation.
+
+## 2. Write Simple, Clear Language
+
+Use plain English. Avoid jargon and complex words. Focus on clarity.
+
+Words to avoid:
+
+- "constitutes" → use "is", "represents", or "defines"
+- "utilize" → use "use"
+- "facilitate" → use "enable" or "help"
+- "in order to" → use "to"
+- "subsequently" → use "later" or "then"
+- "comprise" → use "include" or "contain"
+- "leverage" → use "use"
+
+## 3. Include Module Documentation
+
+Every module file must start with top-level `//!` documentation:
+
+```rust
+//! Cargo documentation generation utilities.
+//!
+//! This module provides functions for generating documentation from
+//! Cargo packages, including parsing rustdoc JSON output and converting
+//! it to markdown format.
+```
+
+## 4. Avoid Bullets and Unnecessary Headers
+
+Avoid "Arguments", "Returns", "Architecture" headers. Write as paragraphs. Use
+lists sparingly. No bold labels like "**Important:**" or "**Note:**".
+
+🛑 Bad (Headers & Bullets):
+
+```rust
+/// A handler for network requests.
+///
+/// This trait defines the interface for processing requests.
+///
+/// - **Transport-agnostic**: Works with any handler
+/// - **Protocol-agnostic**: Don't understand structure
+/// - **Bidirectional**: Same handler for read/write
+```
+
+✅ Good (Paragraph Style):
+
+```rust
+/// A handler for network requests.
+///
+/// This trait defines the interface for processing requests and generating
+/// responses. The design is transport-agnostic, allowing both producers and
+/// consumers to work with any handler implementation. Handlers are
+/// bidirectional and can be used for both read and write roles.
+```
+
+🛑 Bad (Arguments Header):
+
+```rust
+/// Send a data packet.
+///
+/// This is a low-level I/O operation.
+///
+/// # Arguments
+///
+/// * `packet` - The data packet to send
+```
+
+✅ Good (Integrated Description):
+
+```rust
+/// Send a data packet.
+///
+/// This is a low-level I/O operation. The packet should be properly formatted,
+/// but the handler doesn't validate this.
+```
+
+## 5. Use Lists When Appropriate
+
+Simple lists are OK for clarity, especially for error codes or options.
+
+✅ Good (Error Codes):
+
+```rust
+/// A protocol error.
+///
+/// Standard error codes:
+/// - 1001: Parse error
+/// - 1002: Invalid request
+/// - 1003: Operation not found
+/// - 2000 to 2999: Application error
+```
+
+## 6. Document Behavior and Errors
+
+Focus on what the function does and when it fails.
+
+✅ Good (Function with Errors):
+
+```rust
+/// Parses rustdoc JSON output and extracts item documentation.
+///
+/// This function reads rustdoc JSON generated by `cargo rustdoc -- --output-format json`
+/// and extracts documentation items including functions, structs, and enums.
+/// The output is organized by crate and item type for easy navigation.
+pub fn parse_rustdoc(path: &Path) -> Result<Documentation> {
+    // ...
+}
+```
+
+## 7. Include Examples for Complex APIs
+
+Use `# Example` header for non-obvious APIs.
+
+✅ Good:
+
+````rust
+/// Builds a documentation index from parsed items.
+///
+/// The index groups items by type and provides quick access to
+/// frequently used documentation.
+///
+/// # Example
+///
+/// ```
+/// use doc_generator::Documentation;
+///
+/// let docs = Documentation::new();
+/// let index = docs.build_index();
+///
+/// assert_eq!(index.functions.len(), 42);
+/// ```
+pub fn build_index(&self) -> Index {
+    // ...
+}
+````
+
+## 8. Use Intra-Doc Links
+
+Reference other items using [`ItemName`] syntax.
+
+✅ Good:
+
+```rust
+/// Processes documentation items and generates markdown output.
+///
+/// See [`Documentation`] for the input structure and [`MarkdownWriter`]
+/// for the output format.
+///
+/// This function is called by [`generate_docs`] after parsing is complete.
+pub fn process_items(docs: &Documentation) -> String {
+    // ...
+}
+```

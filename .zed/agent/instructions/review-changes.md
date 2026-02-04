@@ -16,7 +16,6 @@ correctness.
    them (Rust, documentation, tests, etc.).
 4. **Apply Relevant Guidelines**: For each file type, strictly apply the
    corresponding guideline:
-    - DOCS.md -> `.zed/agent/guidelines/writing-docs.md`
     - README.md -> `.zed/agent/guidelines/writing-readme.md`
     - Rust files -> `.zed/agent/guidelines/writing-rust.md`
 5. **Verify Quality**: Check that changes are complete, well-tested, and follow
@@ -26,10 +25,10 @@ correctness.
 
 ## Review Guidelines by File Type
 
-### DOCS.md Reviews
+#### README.md Reviews
 
-When reviewing changes to DOCS.md, verify strict compliance with
-`.zed/agent/guidelines/writing-docs.md`:
+When reviewing changes to README.md, verify strict compliance with
+`.zed/agent/guidelines/writing-readme.md`:
 
 #### Content Requirements
 
@@ -63,13 +62,6 @@ When reviewing changes to DOCS.md, verify strict compliance with
       concerns simultaneously" → "several concerns")
 - [ ] Active voice - "Add feature" not "Feature was added"
 - [ ] Short sentences - Keep to the point
-
-### README.md Reviews
-
-When reviewing changes to README.md, verify strict compliance with
-`.zed/agent/guidelines/writing-readme.md`:
-
-#### Content Requirements
 
 - [ ] Clear project description - Explains what the project does
 - [ ] Quick start instructions - Get users running immediately
@@ -224,16 +216,6 @@ For each file type identified:
 
 ## Common Review Findings
 
-### DOCS.md Common Issues
-
-| Issue              | Description                            | Fix                                |
-| ------------------ | -------------------------------------- | ---------------------------------- |
-| Marketing language | Words like "powerful", "revolutionary" | Replace with factual descriptions  |
-| Vague instructions | "Do the thing"                         | Provide specific, actionable steps |
-| Missing context    | Feature added without explanation      | Add why this matters               |
-| Hedging language   | "Simply run this command"              | Remove "simply"                    |
-| Passive voice      | "The feature is implemented"           | Change to "Implement the feature"  |
-
 ### README.md Common Issues
 
 | Issue               | Description                        | Fix                                     |
@@ -306,7 +288,7 @@ Before concluding a review, ensure:
 
 - [ ] Staged changes examined in full
 - [ ] File statistics reviewed
-- [ ] Documentation files checked against writing-docs.md or writing-readme.md
+- [ ] Documentation files checked against writing-readme.md
 - [ ] Rust files checked against writing-rust.md
 - [ ] Code structure follows project patterns
 - [ ] Error handling is comprehensive
@@ -358,7 +340,7 @@ Overall quality is good with minor style issues in documentation.
 
 - `src/error.rs` - New centralized error module
 - `src/lib.rs` - Updated to use new error module
-- `DOCS.md` - Updated error handling documentation
+- `README.md` - Updated error handling documentation
 
 ### Issues Found
 
@@ -368,9 +350,9 @@ None found.
 
 #### Style Issues
 
-- [ ] DOCS.md uses passive voice in section "Error Handling" (line 42-45)
-- [ ] DOCS.md has marketing language "powerful new error system" (line 38)
-- [ ] DOCS.md missing quick start example for error handling (section 3)
+- [ ] README.md uses passive voice in section "Error Handling" (line 42-45)
+- [ ] README.md has marketing language "powerful new error system" (line 38)
+- [ ] README.md missing quick start example for error handling (section 3)
 
 #### Suggestions
 

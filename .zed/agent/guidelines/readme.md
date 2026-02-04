@@ -4,6 +4,11 @@
 >
 > Follow these guidelines strictly
 
+> [!NOTE]
+>
+> README.md is for getting started and should include basic usage information
+> only.
+
 1. Start with a clear description of what the project does.
 2. Provide quick start instructions that get users running immediately.
 3. Include installation steps with examples.

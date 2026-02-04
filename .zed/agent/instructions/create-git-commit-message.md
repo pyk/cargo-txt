@@ -180,7 +180,7 @@ Co-authored-by: {Name} <{email}>
 
 ### Example 1: Removal with Breaking Change
 
-````
+```markdown
 core: remove Stream transport from Stdio
 
 The `Stdio` transport used `Stream` internally as
@@ -212,31 +212,25 @@ Usage examples:
 
 Server:
 
-```rust
-let transport = Stdio::new();
-service.serve(transport)?;
-````
+    let transport = Stdio::new();
+    service.serve(transport)?;
 
 Client with subprocess:
 
-```rust
-let cmd = Command::new("my-server");
-let transport = Stdio::spawn(cmd)?;
-let mut client = CalculatorClient::new(transport)?;
-client.add(1, 2)?;
-transport.kill()?;
-```
+    let cmd = Command::new("my-server");
+    let transport = Stdio::spawn(cmd)?;
+    let mut client = CalculatorClient::new(transport)?;
+    client.add(1, 2)?;
+    transport.kill()?;
 
 All tests pass. ast-grep scan passed.
 
-Co-authored-by: GLM 4.7 <glm-4.7@z.ai>
-
+Co-Authored-By: GLM 4.7 <253101093+zed-agent@users.noreply.github.com>
 ```
 
 ### Example 2: Feature Addition
 
-```
-
+```markdown
 parser: add support for nested structures
 
 The parser previously only supported flat object structures. This change adds
@@ -252,12 +246,12 @@ Breaking change:
 
 - None (backward compatible)
 
+Co-Authored-By: GLM 4.7 <253101093+zed-agent@users.noreply.github.com>
 ```
 
 ### Example 3: Bug Fix
 
-```
-
+```markdown
 codec: fix buffer overflow in decode
 
 When decoding large messages, the buffer could overflow if the message size
@@ -272,12 +266,12 @@ Changes:
 
 Fixes: #123
 
+Co-Authored-By: GLM 4.7 <253101093+zed-agent@users.noreply.github.com>
 ```
 
 ### Example 4: Refactor
 
-```
-
+```markdown
 utils: extract error handling to dedicated module
 
 Error handling logic was scattered across multiple files. This change
@@ -295,27 +289,28 @@ Breaking change:
 - Error types are now re-exported from `crate::error` instead of individual
   modules
 
+Co-Authored-By: GLM 4.7 <253101093+zed-agent@users.noreply.github.com>
 ```
 
 ## Common Mistakes to Avoid
 
 ### Subject Line Mistakes
 
-| Mistake | Example | Correction |
-| ------- | ------- | ---------- |
-| Too long | `transports: remove Stream transport from Stdio to reduce dependencies` | `core: remove Stream transport from Stdio` |
-| Passive voice | `Stream transport was removed from Stdio` | `core: remove Stream transport` |
-| Vague | `update code` | `transports: remove Stream` |
-| Missing scope | `remove Stream transport` | `core: remove Stream transport` |
+| Mistake       | Example                                                                 | Correction                                 |
+| ------------- | ----------------------------------------------------------------------- | ------------------------------------------ |
+| Too long      | `transports: remove Stream transport from Stdio to reduce dependencies` | `core: remove Stream transport from Stdio` |
+| Passive voice | `Stream transport was removed from Stdio`                               | `core: remove Stream transport`            |
+| Vague         | `update code`                                                           | `transports: remove Stream`                |
+| Missing scope | `remove Stream transport`                                               | `core: remove Stream transport`            |
 
 ### Body Mistakes
 
-| Mistake | Example | Correction |
-| ------- | ------- | ---------- |
-| No context | Just bullet points with no explanation | Add summary paragraph explaining why |
+| Mistake                        | Example                                       | Correction                                |
+| ------------------------------ | --------------------------------------------- | ----------------------------------------- |
+| No context                     | Just bullet points with no explanation        | Add summary paragraph explaining why      |
 | Missing breaking change notice | Changes documented but not marked as breaking | Explicitly add "Breaking change:" section |
-| Too verbose | 10 paragraphs explaining the change | Keep it to 2-3 paragraphs max |
-| No file paths | "Updated the parser module" | "Update `src/parser.rs` to handle..." |
+| Too verbose                    | 10 paragraphs explaining the change           | Keep it to 2-3 paragraphs max             |
+| No file paths                  | "Updated the parser module"                   | "Update `src/parser.rs` to handle..."     |
 
 ## Verification Checklist
 
@@ -361,23 +356,22 @@ Omit the body when:
 
 Use consistent scope names across commits:
 
-| Scope | Usage | Example |
-| ----- | ----- | ------- |
-| `core` | Core library functionality | `core: add error trait` |
-| `parser` | Parsing logic | `parser: fix buffer overflow` |
-| `codec` | Encoding/decoding | `codec: add JSON support` |
-| `transports` | Network/IO transports | `transports: add TCP support` |
-| `utils` | Utility functions | `utils: extract error module` |
-| `tests` | Test changes only | `tests: add integration test` |
-| `docs` | Documentation changes | `docs: update README examples` |
-| `build` | Build system changes | `build: add CI workflow` |
+| Scope        | Usage                      | Example                        |
+| ------------ | -------------------------- | ------------------------------ |
+| `core`       | Core library functionality | `core: add error trait`        |
+| `parser`     | Parsing logic              | `parser: fix buffer overflow`  |
+| `codec`      | Encoding/decoding          | `codec: add JSON support`      |
+| `transports` | Network/IO transports      | `transports: add TCP support`  |
+| `utils`      | Utility functions          | `utils: extract error module`  |
+| `tests`      | Test changes only          | `tests: add integration test`  |
+| `docs`       | Documentation changes      | `docs: update README examples` |
+| `build`      | Build system changes       | `build: add CI workflow`       |
 
 ## Examples by Type
 
 ### Feature Addition
 
-```
-
+```markdown
 {scope}: add {feature name}
 
 {One sentence summary of what the feature does and why it's needed.}
@@ -389,18 +383,16 @@ Changes:
 
 Usage:
 
-```language
-{Example code}
-```
+    {Example code}
 
 All tests pass.
 
+Co-Authored-By: GLM 4.7 <253101093+zed-agent@users.noreply.github.com>
 ```
 
 ### Bug Fix
 
-```
-
+```markdown
 {scope}: fix {what was broken}
 
 {Explanation of the bug and how it manifested.}
@@ -412,12 +404,12 @@ Changes:
 
 Fixes: #{issue_number}
 
+Co-Authored-By: GLM 4.7 <253101093+zed-agent@users.noreply.github.com>
 ```
 
 ### Refactor
 
-```
-
+```markdown
 {scope}: refactor {what was refactored}
 
 {Why the refactor was necessary and what it improves.}
@@ -431,12 +423,12 @@ Breaking change:
 
 - {Any breaking changes, or "None"}
 
+Co-Authored-By: GLM 4.7 <253101093+zed-agent@users.noreply.github.com>
 ```
 
 ### Breaking Change
 
-```
-
+```markdown
 {scope}: {action} {what}
 
 {Context for the breaking change.}
@@ -453,14 +445,11 @@ Breaking change:
 
 Migration:
 
-```language
-{Old code}
+    {Old code}
 
-// Change to:
+    // Change to:
 
-{New code}
-```
+    {New code}
 
-```
-
+Co-Authored-By: GLM 4.7 <253101093+zed-agent@users.noreply.github.com>
 ```
