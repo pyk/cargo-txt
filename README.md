@@ -116,6 +116,11 @@ target/docmd/rustdoc_types/     # Library name directory (underscores)
 **Note**: Only installed dependencies listed in your `Cargo.toml` can be built.
 You cannot build documentation for arbitrary crates from crates.io.
 
+**Dev-dependencies**: Dev-dependencies and build-dependencies cannot be built
+directly because they are not part of the regular dependency graph and cargo
+does not activate them for documentation generation. If you try to build a
+dev-dependency, you'll get a helpful error message with workarounds.
+
 Example:
 
 ```shell

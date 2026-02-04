@@ -84,26 +84,50 @@ pub fn build(crate_name: &str) -> Result<()> {
 /// Returns an error if the crate name is not found in the list of
 /// available dependencies from cargo metadata.
 fn validate_crate_name(crate_name: &str, cargo_metadata: &cargo::Metadata) -> Result<()> {
-    let available_crates: Vec<&str> = cargo_metadata.packages[0]
-        .dependencies
-        .iter()
-        .map(|dep| dep.name.as_str())
-        .collect();
+    let dependencies = &cargo_metadata.packages[0].dependencies;
+    let dependency = dependencies.iter().find(|dep| dep.name == crate_name);
 
-    ensure!(
-        available_crates.contains(&crate_name),
-        concat!(
-            "Crate '{}' is not an installed dependency.\n",
-            "\n",
-            "Available crates: {}\n",
-            "\n",
-            "Only installed dependencies can be built. ",
-            "Add the crate to Cargo.toml as a dependency first."
-        ),
-        crate_name,
-        available_crates.join(", ")
-    );
-    Ok(())
+    match dependency {
+        Some(dep) => {
+            debug!(
+                "Found dependency '{}' with kind: {:?}",
+                crate_name, dep.kind
+            );
+            ensure!(
+                dep.kind.is_none(),
+                concat!(
+                    "Crate '{}' is a {} dependency.\n",
+                    "\n",
+                    "Build and dev dependencies cannot be built directly because they are not part of ",
+                    "the regular dependency graph and cargo does not activate them for ",
+                    "documentation generation.\n",
+                    "\n",
+                    "To build documentation for build/dev dependencies, you can:\n",
+                    "1. Move them to the [dependencies] section in Cargo.toml (temporary)\n",
+                    "2. Use `cargo doc` in a temporary project with the crate as a regular dependency\n"
+                ),
+                crate_name,
+                dep.kind.as_deref().unwrap_or("unknown")
+            );
+            Ok(())
+        }
+        None => {
+            let available_crates: Vec<&str> =
+                dependencies.iter().map(|dep| dep.name.as_str()).collect();
+            bail!(
+                concat!(
+                    "Crate '{}' is not an installed dependency.\n",
+                    "\n",
+                    "Available crates: {}\n",
+                    "\n",
+                    "Only installed dependencies can be built. ",
+                    "Add the crate to Cargo.toml as a dependency first."
+                ),
+                crate_name,
+                available_crates.join(", ")
+            )
+        }
+    }
 }
 
 /// Read cargo doc output directory and extract all HTML files and metadata.
@@ -422,6 +446,114 @@ fn format_all_md(crate_name: &str, content: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn validate_crate_name_with_regular_dependency() {
+        let cargo_metadata = cargo::Metadata {
+            packages: vec![cargo::Package {
+                dependencies: vec![
+                    cargo::Dependency {
+                        name: "serde".to_string(),
+                        kind: None,
+                    },
+                    cargo::Dependency {
+                        name: "anyhow".to_string(),
+                        kind: None,
+                    },
+                ],
+            }],
+            target_directory: "/target".to_string(),
+        };
+
+        let result = validate_crate_name("serde", &cargo_metadata);
+        assert!(result.is_ok(), "Regular dependency should pass validation");
+    }
+
+    #[test]
+    fn validate_crate_name_with_dev_dependency() {
+        let cargo_metadata = cargo::Metadata {
+            packages: vec![cargo::Package {
+                dependencies: vec![
+                    cargo::Dependency {
+                        name: "serde_path_to_error".to_string(),
+                        kind: Some("dev".to_string()),
+                    },
+                    cargo::Dependency {
+                        name: "tempfile".to_string(),
+                        kind: Some("dev".to_string()),
+                    },
+                ],
+            }],
+            target_directory: "/target".to_string(),
+        };
+
+        let result = validate_crate_name("serde_path_to_error", &cargo_metadata);
+        assert!(result.is_err(), "Dev-dependency should fail validation");
+
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            error_msg.contains("dev"),
+            "Error message should mention dev dependency"
+        );
+        assert!(
+            error_msg.contains("cannot be built directly"),
+            "Error message should explain limitation"
+        );
+    }
+
+    #[test]
+    fn validate_crate_name_with_missing_dependency() {
+        let cargo_metadata = cargo::Metadata {
+            packages: vec![cargo::Package {
+                dependencies: vec![cargo::Dependency {
+                    name: "serde".to_string(),
+                    kind: None,
+                }],
+            }],
+            target_directory: "/target".to_string(),
+        };
+
+        let result = validate_crate_name("nonexistent", &cargo_metadata);
+        assert!(result.is_err(), "Missing dependency should fail validation");
+
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            error_msg.contains("not an installed dependency"),
+            "Error message should mention missing dependency"
+        );
+        assert!(
+            error_msg.contains("Available crates:"),
+            "Error message should list available crates"
+        );
+    }
+
+    #[test]
+    fn validate_crate_name_with_build_dependency() {
+        let cargo_metadata = cargo::Metadata {
+            packages: vec![cargo::Package {
+                dependencies: vec![
+                    cargo::Dependency {
+                        name: "build-dep".to_string(),
+                        kind: Some("build".to_string()),
+                    },
+                    cargo::Dependency {
+                        name: "serde".to_string(),
+                        kind: None,
+                    },
+                ],
+            }],
+            target_directory: "/target".to_string(),
+        };
+
+        let result = validate_crate_name("build-dep", &cargo_metadata);
+        assert!(result.is_err(), "Build dependency should fail validation");
+
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            error_msg.contains("dev-dependency") || error_msg.contains("cannot be built"),
+            "Error message should explain that build dependencies cannot be built"
+        );
+    }
 
     #[test]
     fn format_all_md_comprehensive() {

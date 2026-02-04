@@ -30,6 +30,8 @@ pub struct Package {
 pub struct Dependency {
     /// Name of the dependency crate
     pub name: String,
+    /// Kind of dependency: "dev" for dev-dependencies, null for regular dependencies
+    pub kind: Option<String>,
 }
 
 /// Get cargo metadata for the current project.
@@ -60,6 +62,8 @@ pub fn metadata() -> Result<Metadata> {
 /// parses the output to find the generated directory, and returns the path
 /// to the HTML documentation directory.
 pub fn doc(crate_name: &str) -> Result<PathBuf> {
+    debug!("Starting documentation build for crate '{}'", crate_name);
+
     let mut cmd = Command::new("cargo");
     cmd.args(["doc", "--package", crate_name, "--no-deps"]);
 
@@ -70,22 +74,50 @@ pub fn doc(crate_name: &str) -> Result<PathBuf> {
         crate_name
     ))?;
 
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
     trace!("Exit code: {}", output.status);
-    trace!("stdout len: {}", output.stdout.len());
-    trace!("stderr len: {}", output.stderr.len());
+    trace!("stdout len: {}", stdout.len());
+    trace!("stderr len: {}", stderr.len());
+
+    debug!("stderr output: {}", stderr);
+
+    if !stdout.is_empty() {
+        trace!("stdout: {}", stdout);
+    }
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        debug!("stderr: {}", stderr);
+        if stderr.contains("panicked at") {
+            debug!("Detected panic in cargo doc output");
+            bail!(
+                concat!(
+                    "Cargo doc command panicked while building documentation for '{}'.\n",
+                    "\n",
+                    "This may indicate that '{}' is a dev-dependency or has dependency issues.\n",
+                    "\n",
+                    "Full error output:\n{}"
+                ),
+                crate_name,
+                crate_name,
+                stderr
+            );
+        }
+
         bail!(
-            "failed to execute cargo doc for crate '{}':\n{}",
+            concat!(
+                "failed to execute cargo doc for crate '{}':\n",
+                "\n",
+                "Exit code: {}\n",
+                "\n",
+                "stderr:\n{}"
+            ),
             crate_name,
+            output.status,
             stderr
         );
     }
 
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    debug!("stderr: {:?}", stderr);
     doc_output_dir(&stderr)
 }
 
