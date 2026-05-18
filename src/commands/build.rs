@@ -64,7 +64,12 @@ pub fn build(crate_name: &str) -> Result<()> {
 
     debug!("Target directory: {}", cargo_metadata.target_directory);
 
-    validate_crate_name(crate_name, &cargo_metadata)?;
+    // Extract the base crate name for validation and metadata.
+    // Cargo accepts version specifiers like `crate@1.2.3`, but our
+    // dependency list only contains the base name.
+    let base_crate_name = crate_name.split('@').next().unwrap_or(crate_name);
+
+    validate_crate_name(base_crate_name, &cargo_metadata)?;
 
     info!("Running cargo doc --package {} --no-deps", crate_name);
 
@@ -72,7 +77,7 @@ pub fn build(crate_name: &str) -> Result<()> {
 
     debug!("Cargo doc output directory: {:?}", cargo_doc_output_dir);
 
-    let cargo_doc_output = read_cargo_doc_output(&cargo_doc_output_dir, crate_name)?;
+    let cargo_doc_output = read_cargo_doc_output(&cargo_doc_output_dir, base_crate_name)?;
     let doc_output = process_cargo_doc_output(cargo_doc_output)?;
     save_doc(doc_output)?;
 
@@ -84,14 +89,15 @@ pub fn build(crate_name: &str) -> Result<()> {
 /// Returns an error if the crate name is not found in the list of
 /// available dependencies from cargo metadata.
 fn validate_crate_name(crate_name: &str, cargo_metadata: &cargo::Metadata) -> Result<()> {
+    let base_crate_name = crate_name.split('@').next().unwrap_or(crate_name);
     let dependencies = &cargo_metadata.packages[0].dependencies;
-    let dependency = dependencies.iter().find(|dep| dep.name == crate_name);
+    let dependency = dependencies.iter().find(|dep| dep.name == base_crate_name);
 
     match dependency {
         Some(dep) => {
             debug!(
                 "Found dependency '{}' with kind: {:?}",
-                crate_name, dep.kind
+                base_crate_name, dep.kind
             );
             ensure!(
                 dep.kind.is_none(),
@@ -106,7 +112,7 @@ fn validate_crate_name(crate_name: &str, cargo_metadata: &cargo::Metadata) -> Re
                     "1. Move them to the [dependencies] section in Cargo.toml (temporary)\n",
                     "2. Use `cargo doc` in a temporary project with the crate as a regular dependency\n"
                 ),
-                crate_name,
+                base_crate_name,
                 dep.kind.as_deref().unwrap_or("unknown")
             );
             Ok(())
@@ -123,7 +129,7 @@ fn validate_crate_name(crate_name: &str, cargo_metadata: &cargo::Metadata) -> Re
                     "Only installed dependencies can be built. ",
                     "Add the crate to Cargo.toml as a dependency first."
                 ),
-                crate_name,
+                base_crate_name,
                 available_crates.join(", ")
             )
         }
@@ -552,6 +558,50 @@ mod tests {
         assert!(
             error_msg.contains("dev-dependency") || error_msg.contains("cannot be built"),
             "Error message should explain that build dependencies cannot be built"
+        );
+    }
+
+    #[test]
+    fn validate_crate_name_with_version_specifier() {
+        let cargo_metadata = cargo::Metadata {
+            packages: vec![cargo::Package {
+                dependencies: vec![cargo::Dependency {
+                    name: "tracing-subscriber".to_string(),
+                    kind: None,
+                }],
+            }],
+            target_directory: "/target".to_string(),
+        };
+
+        let result = validate_crate_name("tracing-subscriber@0.3.23", &cargo_metadata);
+        assert!(
+            result.is_ok(),
+            "Versioned crate name should pass validation when base name is a dependency"
+        );
+    }
+
+    #[test]
+    fn validate_crate_name_versioned_with_missing_dependency() {
+        let cargo_metadata = cargo::Metadata {
+            packages: vec![cargo::Package {
+                dependencies: vec![cargo::Dependency {
+                    name: "serde".to_string(),
+                    kind: None,
+                }],
+            }],
+            target_directory: "/target".to_string(),
+        };
+
+        let result = validate_crate_name("nonexistent@1.0.0", &cargo_metadata);
+        assert!(
+            result.is_err(),
+            "Missing versioned dependency should fail validation"
+        );
+
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            error_msg.contains("not an installed dependency"),
+            "Error message should mention missing dependency"
         );
     }
 

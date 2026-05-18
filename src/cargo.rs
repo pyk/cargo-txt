@@ -104,6 +104,25 @@ pub fn doc(crate_name: &str) -> Result<PathBuf> {
             );
         }
 
+        if stderr.contains("ambiguous") {
+            bail!(
+                concat!(
+                    "failed to execute cargo doc for crate '{}':\n",
+                    "\n",
+                    "Multiple versions of this crate are present in the project.\n",
+                    "Please specify the desired version using the '<crate>@<version>' syntax.\n",
+                    "\n",
+                    "For example:\n",
+                    "  cargo txt build {}@1.2.3\n",
+                    "\n",
+                    "Full error output:\n{}"
+                ),
+                crate_name,
+                crate_name,
+                stderr
+            );
+        }
+
         bail!(
             concat!(
                 "failed to execute cargo doc for crate '{}':\n",
